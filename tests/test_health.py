@@ -45,3 +45,22 @@ def test_ready_passes_with_local_defaults() -> None:
 
     assert response.status_code == 200
     assert response.json()["status"] == "ready"
+
+
+def test_ready_reports_missing_ffmpeg(tmp_path: Path) -> None:
+    settings = Settings(
+        environment="test",
+        database_url=f"sqlite+pysqlite:///{tmp_path / 'test.db'}",
+        media_root=tmp_path / "media",
+        ffmpeg_path="missing-ffmpeg-binary",
+    )
+    app = create_app(settings)
+
+    response = TestClient(app).get("/ready")
+
+    assert response.status_code == 503
+    assert {
+        "name": "ffmpeg",
+        "status": "failed",
+        "detail": "Executable is not available: missing-ffmpeg-binary",
+    } in response.json()["checks"]

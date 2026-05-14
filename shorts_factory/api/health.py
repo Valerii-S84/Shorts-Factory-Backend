@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from shutil import which
 from typing import Literal
 
 from fastapi import APIRouter, Response, status
@@ -59,6 +60,8 @@ def _readiness_checks(settings: Settings) -> list[ReadinessCheck]:
         ReadinessCheck(name="settings", status="ok"),
         _database_url_check(settings),
         _media_root_check(settings),
+        _executable_check("ffmpeg", settings.ffmpeg_path),
+        _executable_check("ffprobe", settings.ffprobe_path),
     ]
     return checks
 
@@ -104,3 +107,13 @@ def _media_root_check(settings: Settings) -> ReadinessCheck:
             detail=f"Media root is not a directory: {settings.media_root}",
         )
     return ReadinessCheck(name="media_root", status="ok")
+
+
+def _executable_check(name: str, executable: str) -> ReadinessCheck:
+    if which(executable) is None:
+        return ReadinessCheck(
+            name=name,
+            status="failed",
+            detail=f"Executable is not available: {executable}",
+        )
+    return ReadinessCheck(name=name, status="ok")

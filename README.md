@@ -61,6 +61,11 @@ Useful local variables:
 - `SHORTS_FACTORY_MEDIA_ROOT`
 - `DATABASE_URL`
 - `SHORTS_FACTORY_API_KEY`
+- `FFMPEG_PATH`
+- `FFPROBE_PATH`
+
+By default the service uses `ffmpeg` and `ffprobe` from `PATH`. On the current
+local environment they resolve to `/usr/bin/ffmpeg` and `/usr/bin/ffprobe`.
 
 `DATABASE_URL`, `SHORTS_FACTORY_API_KEY`, `QUIZ_BANK_BASE_URL`, `OPENAI_API_KEY`,
 `TELEGRAM_BOT_TOKEN`, and `TELEGRAM_CHAT_ID` are required for production settings.
