@@ -9,6 +9,7 @@ from shorts_factory.generation.image_generator import ImageGenerator
 from shorts_factory.generation.script_generator import ScriptGenerator
 from shorts_factory.generation.voice_generator import VoiceGenerator
 from shorts_factory.publishing.publish_service import PublishService
+from shorts_factory.publishing.youtube_publisher import YouTubePublishError
 from shorts_factory.quiz_bank.client import QuizBankClient
 from shorts_factory.rendering.ffmpeg_renderer import FFmpegRenderer
 from shorts_factory.rendering.qa_probe import VideoQAService
@@ -101,6 +102,16 @@ class VideoJobWorker:
 
             if PublishPlatform.TELEGRAM.value in job.target_platforms:
                 self.publish_service.publish_to_telegram(job)
+            if PublishPlatform.YOUTUBE.value in job.target_platforms:
+                try:
+                    self.publish_service.publish_to_youtube(job)
+                except YouTubePublishError as error:
+                    self.repository.add_render_log(
+                        job,
+                        step="youtube_publish",
+                        status=RecordStatus.FAILED,
+                        message=str(error),
+                    )
         except Exception as error:
             self.repository.add_render_log(
                 job,

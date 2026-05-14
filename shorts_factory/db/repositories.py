@@ -156,6 +156,7 @@ class VideoJobRepository:
         external_id: str | None = None,
         url: str | None = None,
         error_message: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> PublishLog:
         publish_log = PublishLog(
             job_id=job.id,
@@ -164,6 +165,7 @@ class VideoJobRepository:
             external_id=external_id,
             url=url,
             error_message=error_message,
+            metadata_json=metadata,
             published_at=datetime.now(UTC) if status == RecordStatus.SUCCESS else None,
         )
         self._session.add(publish_log)

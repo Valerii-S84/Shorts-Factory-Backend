@@ -8,6 +8,7 @@ from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Environment = Literal["local", "test", "development", "staging", "production"]
+YouTubePrivacyStatus = Literal["private", "unlisted", "public"]
 LOCAL_DATABASE_URL = "sqlite+pysqlite:///var/shorts_factory.db"
 
 
@@ -40,6 +41,17 @@ class Settings(BaseSettings):
     telegram_chat_id: str | None = Field(default=None, validation_alias="TELEGRAM_CHAT_ID")
     ffmpeg_path: str = Field(default="ffmpeg", validation_alias="FFMPEG_PATH")
     ffprobe_path: str = Field(default="ffprobe", validation_alias="FFPROBE_PATH")
+    youtube_access_token: SecretStr | None = Field(
+        default=None, validation_alias="YOUTUBE_ACCESS_TOKEN"
+    )
+    youtube_upload_url: str = Field(
+        default="https://www.googleapis.com/upload/youtube/v3/videos",
+        validation_alias="YOUTUBE_UPLOAD_URL",
+    )
+    youtube_privacy_status: YouTubePrivacyStatus = Field(
+        default="private", validation_alias="YOUTUBE_PRIVACY_STATUS"
+    )
+    youtube_category_id: str = Field(default="27", validation_alias="YOUTUBE_CATEGORY_ID")
 
     model_config = SettingsConfigDict(
         extra="ignore",

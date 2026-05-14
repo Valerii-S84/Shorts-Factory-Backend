@@ -27,3 +27,12 @@ def test_api_key_is_secret_value() -> None:
 
     assert str(settings.api_key) == "**********"
     assert settings.api_key.get_secret_value() == "super-secret"
+
+
+def test_youtube_settings_keep_access_token_secret() -> None:
+    settings = Settings(environment="test", youtube_access_token="youtube-token")
+
+    assert settings.youtube_privacy_status == "private"
+    assert settings.youtube_category_id == "27"
+    assert str(settings.youtube_access_token) == "**********"
+    assert settings.youtube_access_token.get_secret_value() == "youtube-token"

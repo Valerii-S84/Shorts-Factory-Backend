@@ -2,7 +2,7 @@ from collections.abc import Generator
 from secrets import compare_digest
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -12,6 +12,7 @@ from shorts_factory.db.session import create_session_factory, get_engine, sessio
 from shorts_factory.jobs.scheduler import create_manual_job
 from shorts_factory.publishing.publish_service import DuplicatePublishError, PublishService
 from shorts_factory.publishing.telegram_publisher import TelegramPublisher, TelegramPublishError
+from shorts_factory.publishing.youtube_publisher import YouTubePublisher, YouTubePublishError
 from shorts_factory.settings import Settings
 
 
@@ -150,12 +151,22 @@ def create_jobs_router(settings: Settings) -> APIRouter:
             ) from error
         return _job_response(job)
 
-    @router.post("/{job_id}/publish/youtube", dependencies=[Auth])
-    def publish_youtube(job_id: int) -> dict[str, str]:
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail=f"YouTube publishing belongs to Stage 2. Job {job_id} was not published.",
-        )
+    @router.post("/{job_id}/publish/youtube", response_model=JobResponse, dependencies=[Auth])
+    def publish_youtube(
+        job_id: int,
+        response: Response,
+        session: Annotated[Session, Depends(get_session)],
+    ) -> JobResponse:
+        repository = VideoJobRepository(session)
+        try:
+            job = repository.get(job_id)
+            publisher = YouTubePublisher(settings)
+            PublishService(repository, youtube_publisher=publisher).publish_to_youtube(job)
+        except JobNotFoundError as error:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+        except (YouTubePublishError, DuplicatePublishError, ValueError):
+            response.status_code = status.HTTP_409_CONFLICT
+        return _job_response(repository.get(job_id))
 
     return router
 
