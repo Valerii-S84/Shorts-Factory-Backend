@@ -22,6 +22,24 @@ class Settings(BaseSettings):
     )
     database_url: str | None = Field(default=None, validation_alias="DATABASE_URL")
     api_key: SecretStr | None = Field(default=None, validation_alias="SHORTS_FACTORY_API_KEY")
+    quiz_bank_base_url: str | None = Field(default=None, validation_alias="QUIZ_BANK_BASE_URL")
+    quiz_bank_api_key: SecretStr | None = Field(default=None, validation_alias="QUIZ_BANK_API_KEY")
+    quiz_bank_next_path: str = Field(
+        default="/quizzes/next", validation_alias="QUIZ_BANK_NEXT_PATH"
+    )
+    openai_api_key: SecretStr | None = Field(default=None, validation_alias="OPENAI_API_KEY")
+    openai_script_model: str = Field(
+        default="gpt-4o-2024-08-06", validation_alias="OPENAI_SCRIPT_MODEL"
+    )
+    openai_image_model: str = Field(default="gpt-image-1", validation_alias="OPENAI_IMAGE_MODEL")
+    openai_tts_model: str = Field(default="gpt-4o-mini-tts", validation_alias="OPENAI_TTS_MODEL")
+    openai_voice: str = Field(default="alloy", validation_alias="OPENAI_VOICE")
+    telegram_bot_token: SecretStr | None = Field(
+        default=None, validation_alias="TELEGRAM_BOT_TOKEN"
+    )
+    telegram_chat_id: str | None = Field(default=None, validation_alias="TELEGRAM_CHAT_ID")
+    ffmpeg_path: str = Field(default="ffmpeg", validation_alias="FFMPEG_PATH")
+    ffprobe_path: str = Field(default="ffprobe", validation_alias="FFPROBE_PATH")
 
     model_config = SettingsConfigDict(
         extra="ignore",
@@ -39,6 +57,14 @@ class Settings(BaseSettings):
             missing.append("DATABASE_URL")
         if self.api_key is None:
             missing.append("SHORTS_FACTORY_API_KEY")
+        if self.quiz_bank_base_url is None:
+            missing.append("QUIZ_BANK_BASE_URL")
+        if self.openai_api_key is None:
+            missing.append("OPENAI_API_KEY")
+        if self.telegram_bot_token is None:
+            missing.append("TELEGRAM_BOT_TOKEN")
+        if self.telegram_chat_id is None:
+            missing.append("TELEGRAM_CHAT_ID")
 
         if missing:
             joined = ", ".join(missing)
@@ -53,6 +79,18 @@ class Settings(BaseSettings):
         if self.environment in {"local", "test", "development"}:
             return LOCAL_DATABASE_URL
         return None
+
+    @property
+    def videos_root(self) -> Path:
+        return self.media_root / "videos"
+
+    @property
+    def images_root(self) -> Path:
+        return self.media_root / "images"
+
+    @property
+    def audio_root(self) -> Path:
+        return self.media_root / "audio"
 
 
 @lru_cache

@@ -122,6 +122,11 @@ Stage 1 exit criteria:
 - A failed recoverable step can retry without duplicate posts.
 - A non-recoverable failure stops with a clear status and error.
 
+Implementation note:
+
+- Stage 1 backend boundaries, models, validation, render/QA contracts, Telegram publisher, job API, retry policy, and worker orchestration are implemented in code.
+- Real end-to-end publishing still requires configured Quiz Bank, OpenAI, Telegram credentials, FFmpeg runtime assets, and a real approved quiz payload.
+
 ## 5. Stage 2 - YouTube Expansion
 
 Ціль: додати YouTube Shorts як другий production publishing target без ламання Telegram flow.
