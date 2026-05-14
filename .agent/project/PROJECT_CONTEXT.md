@@ -16,7 +16,9 @@ Project-specific source of truth for Shorts Factory Backend.
 - Root entrypoints: Not created yet
 - Source directories: planned `shorts_factory/`
 - Test directories: planned `tests/`
-- Config / infra directories: planned root config files; `.agent/` contains agent rules and project context
+- Documentation directories: `docs/`
+- Product documents: `docs/PRODUCT_VISION.md`, `docs/ROADMAP.md`
+- Config / infra directories: planned root config files; `.agent/` contains agent rules and minimal project context
 - Read-only or protected paths: `.agent/core/` is treated as universal rules; secrets and credentials files are never read or modified
 
 ## 3. Key commands
@@ -35,8 +37,8 @@ Project-specific source of truth for Shorts Factory Backend.
 | Quiz Bank API | Source of approved/published quiz content | HTTP API | Single source of truth for question, answers, explanation, topic, and level |
 | OpenAI API | Script formatting, image prompts, image generation, voice generation, publishing metadata | HTTPS API with env/secret key | LLM output is untrusted until schema-validated |
 | FFmpeg / FFprobe | Video rendering and media QA | Local binary | Required for MP4 assembly, audio/video probing, overlays, and Ken Burns effect |
-| Telegram Bot API | Telegram channel publishing | HTTPS API with bot token in secrets | Initial MVP publishing target |
-| YouTube Data API | YouTube Shorts publishing | OAuth credentials in secrets | Planned after Telegram MVP |
+| Telegram Bot API | Telegram channel publishing | HTTPS API with bot token in secrets | Stage 1 production publishing target |
+| YouTube Data API | YouTube Shorts publishing | OAuth credentials in secrets | Stage 2 expansion after Telegram flow is stable |
 | Local filesystem / object storage | Store generated images, audio, videos, subtitles, and logs | Controlled service paths | Must avoid untrusted paths and public secret exposure |
 
 ## 5. Project constraints
@@ -46,7 +48,8 @@ Project-specific source of truth for Shorts Factory Backend.
 - Deploy / production boundaries: no production deploy, credential rotation, real channel publishing, or production data mutation without explicit user request and confirmation
 - Approval-required operations: dependency changes, schema changes/migrations, real Telegram/YouTube publishing, production-like external calls, destructive file/database operations
 - Restricted hosts / environments: production Telegram channels, YouTube channels, Quiz Bank production API, production storage
-- Project-specific forbidden actions: changing quiz facts with AI, asking image generation to draw text, publishing before QA, publishing duplicate retries, using unapproved/unpublished quizzes, storing secrets in plaintext, using n8n as product orchestration
+- Product quality bar: build as a full production product in staged releases; Stage 1 Telegram work must not use disposable shortcuts that weaken Stage 2 YouTube expansion
+- Project-specific forbidden actions: changing quiz facts with AI, asking image generation to draw text, publishing before QA, publishing duplicate retries, using unapproved/unpublished quizzes, storing secrets in plaintext, using n8n as product orchestration, treating the first Telegram stage as disposable code
 
 ## 6. Git settings
 

@@ -13,7 +13,7 @@ Target video format:
 - Language: German
 - Media: AI images without text, German voice-over, backend-rendered text overlays
 - Motion: Ken Burns zoom/pan effect
-- Publishing: Telegram first, YouTube Shorts after MVP
+- Publishing: Telegram first, YouTube Shorts after the Telegram stage is stable
 
 Core flow:
 
@@ -44,7 +44,18 @@ OpenAI may only:
 
 Exact video text is rendered only by the backend. Image generation must never be asked to draw text.
 
-## 3. End-To-End Behavior
+## 3. Product Quality Bar
+
+Shorts Factory Backend is not a throwaway prototype. Every implementation decision must support a full production product that can be demonstrated at a high professional standard.
+
+The product is delivered in two stable stages:
+
+1. Telegram-first production stage: one quiz becomes one fully QA-checked German short video and is published to Telegram reliably.
+2. YouTube expansion stage: YouTube Shorts publishing is added only after the Telegram flow is stable, observable, repeatable, and clear enough to operate without manual fixes.
+
+Stage 1 is not allowed to use shortcuts that would make Stage 2 harder, such as weak data models, unverifiable rendering, missing QA gates, duplicate-prone publishing, or unstructured logs.
+
+## 4. End-To-End Behavior
 
 The service must:
 
@@ -59,12 +70,12 @@ The service must:
 9. Add Ken Burns zoom/pan.
 10. Render exact text overlays.
 11. QA-check the final video.
-12. Publish to Telegram.
-13. Publish to YouTube Shorts.
+12. Publish to Telegram in Stage 1.
+13. Publish to YouTube Shorts in Stage 2.
 14. Store logs, statuses, assets, and external links.
 15. Retry recoverable failures or mark the job as failed.
 
-## 4. Explicit Non-Goals
+## 5. Explicit Non-Goals
 
 The product must not:
 
@@ -76,8 +87,9 @@ The product must not:
 - use quizzes that are not `approved` or `published`;
 - store secrets as plaintext in the database;
 - create chaotic content without a stable template.
+- treat the first Telegram stage as disposable code.
 
-## 5. Planned Backend Modules
+## 6. Planned Backend Modules
 
 ```text
 shorts_factory/
@@ -124,7 +136,7 @@ shorts_factory/
 +-- settings.py
 ```
 
-## 6. Job Lifecycle
+## 7. Job Lifecycle
 
 Happy path:
 
@@ -151,7 +163,7 @@ retry_pending
 manual_review_required
 ```
 
-## 7. Data Model Fields
+## 8. Data Model Fields
 
 ### `video_jobs`
 
@@ -213,7 +225,7 @@ manual_review_required
 - `is_active`
 - `created_at`
 
-## 8. Standard 18-Second Template
+## 9. Standard 18-Second Template
 
 ```text
 0-2 sec
@@ -242,7 +254,7 @@ CTA:
 Mehr Deutsch-Quiz? Folge uns!
 ```
 
-## 9. Visual Standard
+## 10. Visual Standard
 
 Every video must use a consistent structure:
 
@@ -257,7 +269,7 @@ Every video must use a consistent structure:
 - no visual chaos;
 - no tiny text.
 
-## 10. OpenAI Script Contract
+## 11. OpenAI Script Contract
 
 Backend sends:
 
@@ -294,7 +306,7 @@ OpenAI returns strict JSON:
 
 The backend must validate returned JSON before saving or rendering.
 
-## 11. Image Generation Rule
+## 12. Image Generation Rule
 
 Images are generated without text.
 
@@ -312,7 +324,7 @@ draw the question and answer options on the image
 
 All text must be added by backend overlay rendering.
 
-## 12. Rendering Contract
+## 13. Rendering Contract
 
 FFmpeg rendering must:
 
@@ -327,7 +339,7 @@ FFmpeg rendering must:
 - export MP4;
 - verify the file.
 
-## 13. QA Gate Before Publishing
+## 14. QA Gate Before Publishing
 
 The video must not be published if:
 
@@ -343,7 +355,7 @@ The video must not be published if:
 - render failed;
 - file is corrupted.
 
-## 14. Publishing
+## 15. Publishing
 
 ### Telegram
 
@@ -374,9 +386,9 @@ Store:
 - `privacy_status`
 - `published_at`
 
-Initial YouTube publishing may use `private` or `unlisted`. Public publishing comes after quality is proven.
+Initial YouTube publishing may use `private` or `unlisted`. Public publishing comes after Telegram-stage quality is proven and YouTube publishing has its own QA checks.
 
-## 15. Admin API
+## 16. Admin API
 
 Required backend endpoints:
 
@@ -392,7 +404,7 @@ Required backend endpoints:
 
 The backend must work without an admin panel.
 
-## 16. Security Requirements
+## 17. Security Requirements
 
 - OpenAI key only in env/secrets.
 - Telegram token only in env/secrets.
@@ -403,7 +415,7 @@ The backend must work without an admin panel.
 - Video files need controlled access.
 - Retry must not create duplicate publications.
 
-## 17. Retry Policy
+## 18. Retry Policy
 
 Retry is allowed for:
 
@@ -422,9 +434,9 @@ Retry is not allowed for:
 - missing publishing permission
 - invalid credentials
 
-## 18. MVP Goal
+## 19. Stage 1 Production Goal
 
-The first complete result:
+The first complete production result:
 
 ```text
 one command or one scheduled job
@@ -438,9 +450,9 @@ with exact text
 and publishes it to a Telegram channel
 ```
 
-YouTube publishing is added after this milestone.
+This result must be reliable, observable, QA-gated, and suitable for a professional product presentation. YouTube publishing is added after this stage is stable.
 
-## 19. Final Vision
+## 20. Final Vision
 
 Shorts Factory Backend is a production service that turns verified Quiz Bank content into a constant flow of German Quiz Shorts for audience growth, user engagement, and future monetization.
 
