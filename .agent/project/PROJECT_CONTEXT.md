@@ -13,22 +13,22 @@ Project-specific source of truth for Shorts Factory Backend.
 
 ## 2. Project structure
 
-- Root entrypoints: Not created yet
-- Source directories: planned `shorts_factory/`
-- Test directories: planned `tests/`
+- Root entrypoints: `shorts_factory/main.py`
+- Source directories: `shorts_factory/`
+- Test directories: `tests/`
 - Documentation directories: `docs/`
 - Product documents: `docs/PRODUCT_VISION.md`, `docs/ROADMAP.md`
-- Config / infra directories: planned root config files; `.agent/` contains agent rules and minimal project context
+- Config / infra directories: `pyproject.toml`, `alembic/`, `alembic.ini`; `.agent/` contains agent rules and minimal project context
 - Read-only or protected paths: `.agent/core/` is treated as universal rules; secrets and credentials files are never read or modified
 
 ## 3. Key commands
 
 | Purpose | Command | Notes |
 |---|---|---|
-| Test | Not configured yet | Define after project scaffolding |
-| Lint | Not configured yet | Define after Python tooling is selected |
-| Build | Not configured yet | Define after packaging/deployment approach is selected |
-| Dev / Run | Not configured yet | Define after FastAPI app entrypoint exists |
+| Test | `uv run pytest` | Runs the project test suite |
+| Lint | `uv run ruff check . && uv run ruff format --check .` | Static checks and formatting verification |
+| Build | `uv build` | Builds the Python package |
+| Dev / Run | `uv run uvicorn shorts_factory.main:create_app --factory --reload` | Starts the FastAPI app locally |
 
 ## 4. External dependencies
 
