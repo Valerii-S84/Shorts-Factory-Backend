@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+from pathlib import Path
 
 from shorts_factory.rendering.render_plan import RenderPlan
 from shorts_factory.settings import Settings
@@ -15,6 +16,7 @@ class FFmpegRenderer:
         self._settings = settings
 
     def render(self, plan: RenderPlan) -> str:
+        Path(plan.output_path).parent.mkdir(parents=True, exist_ok=True)
         command = build_ffmpeg_command(self._settings, plan)
         result = subprocess.run(command, capture_output=True, check=False, text=True)
         if result.returncode != 0:

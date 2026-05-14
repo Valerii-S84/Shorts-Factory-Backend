@@ -34,10 +34,15 @@ class VideoJobRepository:
         locale: str = "de-DE",
         target_platforms: Sequence[str] | None = None,
     ) -> VideoJob:
+        platforms = (
+            list(target_platforms)
+            if target_platforms is not None
+            else [PublishPlatform.TELEGRAM.value]
+        )
         job = VideoJob(
             quiz_id=quiz_id,
             locale=locale,
-            target_platforms=list(target_platforms or [PublishPlatform.TELEGRAM.value]),
+            target_platforms=platforms,
         )
         self._session.add(job)
         self._session.flush()
