@@ -4,7 +4,10 @@ from typing import Literal
 
 from fastapi import APIRouter, Response, status
 from pydantic import BaseModel
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
+from shorts_factory.db.session import create_database_engine
 from shorts_factory.settings import Settings
 
 
@@ -61,21 +64,43 @@ def _readiness_checks(settings: Settings) -> list[ReadinessCheck]:
 
 
 def _database_url_check(settings: Settings) -> ReadinessCheck:
-    if settings.database_url is None:
+    database_url = settings.effective_database_url
+    if database_url is None:
         return ReadinessCheck(
             name="database_url",
             status="failed",
             detail="DATABASE_URL is not configured.",
         )
+
+    engine = None
+    try:
+        engine = create_database_engine(database_url)
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+    except SQLAlchemyError:
+        return ReadinessCheck(
+            name="database_url",
+            status="failed",
+            detail="Database is not reachable.",
+        )
+    finally:
+        if engine is not None:
+            engine.dispose()
+
     return ReadinessCheck(name="database_url", status="ok")
 
 
 def _media_root_check(settings: Settings) -> ReadinessCheck:
-    parent = settings.media_root.parent
-    if not parent.exists():
+    if not settings.media_root.exists():
         return ReadinessCheck(
-            name="media_root_parent",
+            name="media_root",
             status="failed",
-            detail=f"Media root parent does not exist: {parent}",
+            detail=f"Media root does not exist: {settings.media_root}",
         )
-    return ReadinessCheck(name="media_root_parent", status="ok")
+    if not settings.media_root.is_dir():
+        return ReadinessCheck(
+            name="media_root",
+            status="failed",
+            detail=f"Media root is not a directory: {settings.media_root}",
+        )
+    return ReadinessCheck(name="media_root", status="ok")

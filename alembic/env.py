@@ -17,9 +17,10 @@ target_metadata = None
 
 def _database_url() -> str:
     settings = get_settings()
-    if settings.database_url is None:
+    database_url = settings.effective_database_url
+    if database_url is None:
         raise RuntimeError("DATABASE_URL is required to run migrations.")
-    return settings.database_url
+    return database_url
 
 
 def run_migrations_offline() -> None:

@@ -9,6 +9,7 @@ def test_local_settings_can_start_without_secrets() -> None:
 
     assert settings.app_name == "Shorts Factory Backend"
     assert settings.database_url is None
+    assert settings.effective_database_url == "sqlite+pysqlite:///var/shorts_factory.db"
     assert settings.api_key is None
 
 

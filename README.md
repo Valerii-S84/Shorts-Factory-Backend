@@ -39,5 +39,6 @@ Useful local variables:
 - `DATABASE_URL`
 - `SHORTS_FACTORY_API_KEY`
 
-`DATABASE_URL` and `SHORTS_FACTORY_API_KEY` are required for production settings.
-
+Local, test, and development environments use `sqlite+pysqlite:///var/shorts_factory.db`
+when `DATABASE_URL` is not set. `DATABASE_URL` and `SHORTS_FACTORY_API_KEY` are
+required for production settings.

@@ -18,9 +18,10 @@ def create_session_factory(engine: Engine) -> sessionmaker[Session]:
 
 def get_engine(settings: Settings | None = None) -> Engine | None:
     resolved_settings = settings or get_settings()
-    if resolved_settings.database_url is None:
+    database_url = resolved_settings.effective_database_url
+    if database_url is None:
         return None
-    return create_database_engine(resolved_settings.database_url)
+    return create_database_engine(database_url)
 
 
 def session_scope(session_factory: sessionmaker[Session]) -> Generator[Session]:

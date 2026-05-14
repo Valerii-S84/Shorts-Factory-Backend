@@ -8,6 +8,7 @@ from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Environment = Literal["local", "test", "development", "staging", "production"]
+LOCAL_DATABASE_URL = "sqlite+pysqlite:///var/shorts_factory.db"
 
 
 class Settings(BaseSettings):
@@ -44,6 +45,14 @@ class Settings(BaseSettings):
             raise ValueError(f"Missing required production configuration: {joined}.")
 
         return self
+
+    @property
+    def effective_database_url(self) -> str | None:
+        if self.database_url is not None:
+            return self.database_url
+        if self.environment in {"local", "test", "development"}:
+            return LOCAL_DATABASE_URL
+        return None
 
 
 @lru_cache

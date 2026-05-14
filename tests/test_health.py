@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from shorts_factory.main import create_app
@@ -17,8 +19,8 @@ def test_health_reports_service_status() -> None:
     }
 
 
-def test_ready_reports_missing_database_url() -> None:
-    app = create_app(Settings(environment="test"))
+def test_ready_reports_staging_missing_database_url(tmp_path: Path) -> None:
+    app = create_app(Settings(environment="staging", media_root=tmp_path / "media"))
 
     response = TestClient(app).get("/ready")
 
@@ -32,11 +34,10 @@ def test_ready_reports_missing_database_url() -> None:
     } in payload["checks"]
 
 
-def test_ready_passes_with_configured_database_url_and_media_parent() -> None:
+def test_ready_passes_with_local_defaults() -> None:
     settings = Settings(
-        environment="test",
-        database_url="sqlite+pysqlite:///:memory:",
-        media_root=".",
+        environment="local",
+        media_root="var/media",
     )
     app = create_app(settings)
 
