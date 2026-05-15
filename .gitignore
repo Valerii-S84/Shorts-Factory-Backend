@@ -16,6 +16,7 @@ dist/
 build/
 htmlcov/
 .coverage
+coverage.xml
 
 var/
 *.mp4
@@ -24,4 +25,3 @@ var/
 *.png
 *.jpg
 *.jpeg
-
