@@ -52,9 +52,19 @@ def valid_script() -> GeneratedScript:
                     "image_prompt": "Learning cards on a classroom table",
                 },
                 {
+                    "type": "pause",
+                    "text": "3\n2\n1",
+                    "image_prompt": "Student thinking before choosing",
+                },
+                {
                     "type": "answer",
                     "text": "Richtig ist: A house",
                     "image_prompt": "Happy student learning vocabulary",
+                },
+                {
+                    "type": "cta",
+                    "text": "Mehr Deutsch-Quiz im Telegram-Kanal",
+                    "image_prompt": "Friendly study desk with a smartphone",
                 },
             ],
             "telegram_caption": "Deutsch Quiz",
@@ -120,19 +130,27 @@ def test_generated_script_allows_non_forbidden_text_substrings(
     assert script.frames[0].image_prompt == allowed_prompt
 
 
-def test_generated_script_rejects_less_than_three_frames() -> None:
+def test_generated_script_rejects_old_three_frame_production_script() -> None:
     payload = valid_script().model_dump(mode="json")
-    payload["frames"] = payload["frames"][:2]
+    payload["frames"] = [payload["frames"][1], payload["frames"][2], payload["frames"][4]]
 
     with pytest.raises(ValidationError):
         GeneratedScript.model_validate(payload)
 
 
-def test_generated_script_rejects_more_than_five_frames() -> None:
+def test_generated_script_rejects_more_than_six_frames() -> None:
     payload = valid_script().model_dump(mode="json")
-    payload["frames"].extend(payload["frames"][:2])
+    payload["frames"].append(payload["frames"][0])
 
     with pytest.raises(ValidationError):
+        GeneratedScript.model_validate(payload)
+
+
+def test_generated_script_rejects_invalid_production_frame_order() -> None:
+    payload = valid_script().model_dump(mode="json")
+    payload["frames"][0], payload["frames"][1] = payload["frames"][1], payload["frames"][0]
+
+    with pytest.raises(ValidationError, match="hook -> question -> options"):
         GeneratedScript.model_validate(payload)
 
 
@@ -162,6 +180,7 @@ def test_script_system_prompt_defines_image_prompt_as_scene_brief() -> None:
 
     assert "frame.image_prompt is only" in prompt
     assert "scene brief, not a full style prompt" in prompt
+    assert "exactly six frames" in prompt
     assert "question text" in prompt
     assert "answer options" in prompt
     assert "logos" in prompt

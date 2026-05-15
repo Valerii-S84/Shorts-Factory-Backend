@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Any, Protocol
 
 from shorts_factory.db.models import JobStatus, PublishPlatform, RecordStatus, VideoJob
 from shorts_factory.db.repositories import VideoJobRepository
@@ -59,6 +59,7 @@ class PublishService:
             status=RecordStatus.SUCCESS,
             external_id=result.external_id,
             url=result.url,
+            metadata=_publish_metadata(job, PublishPlatform.TELEGRAM, result.url),
         )
         return self._repository.update_status(job, JobStatus.TELEGRAM_PUBLISHED)
 
@@ -84,6 +85,7 @@ class PublishService:
                 platform=PublishPlatform.YOUTUBE,
                 status=RecordStatus.FAILED,
                 error_message=str(error),
+                metadata=_publish_metadata(job, PublishPlatform.YOUTUBE, None),
             )
             raise
 
@@ -93,6 +95,27 @@ class PublishService:
             status=RecordStatus.SUCCESS,
             external_id=result.external_id,
             url=result.url,
-            metadata={"privacy_status": result.privacy_status},
+            metadata=_publish_metadata(
+                job,
+                PublishPlatform.YOUTUBE,
+                result.url,
+                {"privacy_status": result.privacy_status},
+            ),
         )
         return self._repository.update_status(job, JobStatus.YOUTUBE_PUBLISHED)
+
+
+def _publish_metadata(
+    job: VideoJob,
+    platform: PublishPlatform,
+    publish_url: str | None,
+    extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    metadata: dict[str, Any] = {}
+    if job.render_plan_json:
+        metadata.update(job.render_plan_json.get("creative_metadata") or {})
+    metadata["platform"] = platform.value
+    metadata["publish_url"] = publish_url
+    if extra:
+        metadata.update(extra)
+    return metadata

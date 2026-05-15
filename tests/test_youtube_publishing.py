@@ -92,7 +92,12 @@ def test_publish_service_publishes_youtube_and_records_metadata(tmp_path: Path) 
         assert publish_log.platform == PublishPlatform.YOUTUBE.value
         assert publish_log.status == RecordStatus.SUCCESS.value
         assert publish_log.external_id == "youtube-123"
-        assert publish_log.metadata_json == {"privacy_status": "private"}
+        assert publish_log.metadata_json["privacy_status"] == "private"
+        assert publish_log.metadata_json["platform"] == "youtube"
+        assert (
+            publish_log.metadata_json["publish_url"]
+            == "https://www.youtube.com/watch?v=youtube-123"
+        )
     finally:
         session.close()
         engine.dispose()
@@ -114,6 +119,8 @@ def test_failed_youtube_publish_keeps_previous_job_status(tmp_path: Path) -> Non
         assert publish_log.platform == PublishPlatform.YOUTUBE.value
         assert publish_log.status == RecordStatus.FAILED.value
         assert publish_log.error_message == "YouTube upload failed with status 503."
+        assert publish_log.metadata_json["platform"] == "youtube"
+        assert publish_log.metadata_json["publish_url"] is None
     finally:
         session.close()
         engine.dispose()

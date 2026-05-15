@@ -44,8 +44,10 @@ def script() -> GeneratedScript:
             "hook": "Kannst du das lösen?",
             "voiceover": "Was bedeutet 'Haus'? Richtig ist A, house.",
             "frames": [
+                {"type": "hook", "text": "Hook", "image_prompt": "Curious student"},
                 {"type": "question", "text": "Was bedeutet 'Haus'?", "image_prompt": "Classroom"},
                 {"type": "options", "text": "A house\nB car", "image_prompt": "Quiz lesson"},
+                {"type": "pause", "text": "3\n2\n1", "image_prompt": "Thinking student"},
                 {"type": "answer", "text": "Richtig ist: A house", "image_prompt": "Student"},
                 {"type": "cta", "text": "Folge uns!", "image_prompt": "Learning atmosphere"},
             ],
@@ -58,7 +60,7 @@ def script() -> GeneratedScript:
 
 def test_render_plan_keeps_quiz_answer_and_text_overlays(tmp_path: Path) -> None:
     settings = Settings(environment="test", media_root=tmp_path)
-    image_paths = [tmp_path / "1.png", tmp_path / "2.png", tmp_path / "3.png", tmp_path / "4.png"]
+    image_paths = [tmp_path / f"{index}.png" for index in range(1, 7)]
     audio_path = tmp_path / "voice.mp3"
 
     plan = build_render_plan(
@@ -73,7 +75,11 @@ def test_render_plan_keeps_quiz_answer_and_text_overlays(tmp_path: Path) -> None
     assert plan.correct_option_label == "A"
     assert plan.correct_answer_text == "house"
     assert plan.has_text_overlays
-    assert plan.frames[1].text_overlay.text == "A house\nB car"
+    assert plan.duration_sec == 17.5
+    assert plan.frames[2].text_overlay.text == "A  house\nB  car"
+    assert "Haus bedeutet house." in plan.frames[4].text_overlay.text
+    assert plan.answer_reveal_at_sec == 12.0
+    assert plan.creative_metadata.template_id == "speed"
     assert plan.output_path.endswith("videos/1/short.mp4")
 
 
@@ -89,6 +95,8 @@ def test_ffmpeg_command_pads_audio_to_render_duration(tmp_path: Path) -> None:
             tmp_path / "2.png",
             tmp_path / "3.png",
             tmp_path / "4.png",
+            tmp_path / "5.png",
+            tmp_path / "6.png",
         ],
         audio_path=tmp_path / "voice.mp3",
     )
@@ -98,7 +106,9 @@ def test_ffmpeg_command_pads_audio_to_render_duration(tmp_path: Path) -> None:
 
     assert "-shortest" not in command
     assert "[aout]" in command
-    assert "apad=whole_dur=13.0[aout]" in filter_graph
+    assert "apad=whole_dur=17.5[aout]" in filter_graph
+    assert "between(t\\,0.0\\,1.0)" not in filter_graph
+    assert "between(t,0.0,1.0)" in filter_graph
 
 
 def test_parse_ffprobe_output_detects_audio_and_dimensions() -> None:
@@ -131,6 +141,8 @@ def test_qa_rejects_missing_video_file(tmp_path: Path) -> None:
             tmp_path / "2.png",
             tmp_path / "3.png",
             tmp_path / "4.png",
+            tmp_path / "5.png",
+            tmp_path / "6.png",
         ],
         audio_path=tmp_path / "voice.mp3",
     )

@@ -28,6 +28,11 @@ class SmokeScriptGenerator:
             voiceover=f"{quiz.question} Richtig ist {quiz.correct_option_label}.",
             frames=[
                 ScriptFrame(
+                    type=FrameType.HOOK,
+                    text="Der, die oder das?",
+                    image_prompt="Student at a bright desk",
+                ),
+                ScriptFrame(
                     type=FrameType.QUESTION,
                     text=quiz.question,
                     image_prompt="Student at a bright desk",
@@ -38,9 +43,19 @@ class SmokeScriptGenerator:
                     image_prompt="Learning cards on a table",
                 ),
                 ScriptFrame(
+                    type=FrameType.PAUSE,
+                    text="3\n2\n1",
+                    image_prompt="Student thinking before choosing",
+                ),
+                ScriptFrame(
                     type=FrameType.ANSWER,
                     text=f"Richtig ist: {quiz.correct_option_label} {quiz.correct_option.text}",
                     image_prompt="Happy learner in a classroom",
+                ),
+                ScriptFrame(
+                    type=FrameType.CTA,
+                    text="Mehr Deutsch-Quiz im Telegram-Kanal",
+                    image_prompt="Friendly learning desk with a smartphone nearby",
                 ),
             ],
             telegram_caption=f"Deutsch-Quiz: {quiz.topic}",
@@ -158,6 +173,10 @@ def test_quiz_bank_item_to_render_and_publish_reports_delivery_outcome(tmp_path:
         assert completed_job.finished_at is not None
         assert completed_job.video_path is not None
         assert completed_job.render_plan_json["quiz_id"] == "item-1"
+        assert completed_job.render_plan_json["creative_metadata"]["template_id"] == "grammar_trap"
+        assert completed_job.publish_logs[0].metadata_json["template_id"] == "grammar_trap"
+        assert completed_job.publish_logs[0].metadata_json["platform"] == "telegram"
+        assert completed_job.publish_logs[0].metadata_json["publish_url"] == "https://t.me/c/1"
         assert outcomes == [{"status": "sent"}]
     finally:
         session.close()

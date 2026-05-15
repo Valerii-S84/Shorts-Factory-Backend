@@ -3,11 +3,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from shorts_factory.generation.schemas import FrameType
+from shorts_factory.generation.schemas import GeneratedScript
+from shorts_factory.quiz_bank.schemas import Quiz
 from shorts_factory.rendering.ffmpeg_renderer import FFmpegRenderer, RenderError
 from shorts_factory.rendering.qa_probe import FFprobeVideoProbe, QAError, parse_ffprobe_output
-from shorts_factory.rendering.render_plan import RenderFrame, RenderPlan
-from shorts_factory.rendering.text_overlay import TextOverlay
+from shorts_factory.rendering.render_plan import RenderPlan, build_render_plan
 from shorts_factory.settings import Settings
 
 
@@ -70,24 +70,48 @@ def test_parse_ffprobe_output_rejects_missing_required_fields(output: str, messa
 
 
 def render_plan(tmp_path: Path) -> RenderPlan:
-    return RenderPlan(
+    return build_render_plan(
+        settings=Settings(environment="test", media_root=tmp_path),
         job_id=1,
-        quiz_id="quiz-1",
-        duration_sec=18,
-        audio_path=str(tmp_path / "voice.mp3"),
-        output_path=str(tmp_path / "videos" / "short.mp4"),
-        frames=[
-            RenderFrame(
-                type=FrameType.QUESTION,
-                image_path=str(tmp_path / "image.png"),
-                duration_sec=18,
-                text_overlay=TextOverlay(text="Was bedeutet 'Haus'?"),
-            )
-        ],
-        correct_option_label="A",
-        correct_answer_text="house",
-        telegram_caption="Deutsch Quiz",
-        youtube_title="Deutsch Quiz",
+        quiz=quiz(),
+        script=script(),
+        image_paths=[tmp_path / f"{index}.png" for index in range(1, 7)],
+        audio_path=tmp_path / "voice.mp3",
+    )
+
+
+def quiz() -> Quiz:
+    return Quiz.model_validate(
+        {
+            "id": "quiz-1",
+            "question": "Was bedeutet 'Haus'?",
+            "options": [{"label": "A", "text": "house"}, {"label": "B", "text": "car"}],
+            "correct_answer": "A",
+            "explanation": "Haus bedeutet house.",
+            "level": "A1",
+            "topic": "Vocabulary",
+            "status": "approved",
+        }
+    )
+
+
+def script() -> GeneratedScript:
+    return GeneratedScript.model_validate(
+        {
+            "hook": "Kannst du das lösen?",
+            "voiceover": "Was bedeutet 'Haus'? Richtig ist A, house.",
+            "frames": [
+                {"type": "hook", "text": "Hook", "image_prompt": "Curious student"},
+                {"type": "question", "text": "Was bedeutet 'Haus'?", "image_prompt": "Classroom"},
+                {"type": "options", "text": "A house\nB car", "image_prompt": "Quiz lesson"},
+                {"type": "pause", "text": "3\n2\n1", "image_prompt": "Thinking student"},
+                {"type": "answer", "text": "Richtig ist: A house", "image_prompt": "Student"},
+                {"type": "cta", "text": "Folge uns!", "image_prompt": "Learning atmosphere"},
+            ],
+            "telegram_caption": "Deutsch Quiz",
+            "youtube_title": "Deutsch Quiz",
+            "youtube_description": "Deutsch Quiz",
+        }
     )
 
 

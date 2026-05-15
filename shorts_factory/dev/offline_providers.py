@@ -38,7 +38,7 @@ class OfflineQuizBankClient:
 class OfflineScriptGenerator:
     def generate(self, quiz: Quiz) -> GeneratedScript:
         script = GeneratedScript(
-            hook="Kannst du das lösen?",
+            hook="Der, die oder das?",
             voiceover=_voiceover(quiz),
             frames=_script_frames(quiz),
             telegram_caption=f"Deutsch-Quiz: {quiz.topic} ({quiz.level})",
@@ -101,9 +101,9 @@ def _sample_quiz() -> Quiz:
 def _voiceover(quiz: Quiz) -> str:
     options = ", ".join(f"{option.label}: {option.text}" for option in quiz.options)
     return (
-        f"{quiz.question} {options}. Denk kurz nach. "
+        f"Der, die oder das? {quiz.question} {options}. Denk kurz nach. "
         f"Richtig ist {quiz.correct_option_label}: {quiz.correct_option.text}. "
-        f"{quiz.explanation}"
+        f"{quiz.explanation} Mehr Deutsch-Quiz im Telegram-Kanal."
     )
 
 
@@ -112,7 +112,7 @@ def _script_frames(quiz: Quiz) -> list[ScriptFrame]:
     return [
         ScriptFrame(
             type=FrameType.HOOK,
-            text="Kannst du das lösen?",
+            text="Der, die oder das?",
             image_prompt="Bright study room with pencils and a notebook",
         ),
         ScriptFrame(
@@ -126,9 +126,19 @@ def _script_frames(quiz: Quiz) -> list[ScriptFrame]:
             image_prompt="Three colorful learning cards on a table",
         ),
         ScriptFrame(
+            type=FrameType.PAUSE,
+            text="3\n2\n1",
+            image_prompt="Student concentrating before choosing an answer",
+        ),
+        ScriptFrame(
             type=FrameType.ANSWER,
-            text=f"Richtig ist: {quiz.correct_option_label} {quiz.correct_option.text}",
+            text=f"Richtig: {quiz.correct_option_label} {quiz.correct_option.text}",
             image_prompt="Happy learner beside a small bridge model",
+        ),
+        ScriptFrame(
+            type=FrameType.CTA,
+            text="Mehr Deutsch-Quiz im Telegram-Kanal",
+            image_prompt="Friendly learning desk with a smartphone nearby",
         ),
     ]
 

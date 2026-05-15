@@ -30,6 +30,16 @@ class FrameType(StrEnum):
     CTA = "cta"
 
 
+PRODUCTION_FRAME_SEQUENCE = (
+    FrameType.HOOK,
+    FrameType.QUESTION,
+    FrameType.OPTIONS,
+    FrameType.PAUSE,
+    FrameType.ANSWER,
+    FrameType.CTA,
+)
+
+
 class ScriptFrame(BaseModel):
     type: FrameType
     text: str
@@ -54,7 +64,7 @@ class ScriptFrame(BaseModel):
 class GeneratedScript(BaseModel):
     hook: str
     voiceover: str
-    frames: list[ScriptFrame] = Field(min_length=3, max_length=5)
+    frames: list[ScriptFrame] = Field(min_length=6, max_length=6)
     telegram_caption: str
     youtube_title: str
     youtube_description: str
@@ -68,9 +78,9 @@ class GeneratedScript(BaseModel):
         return stripped
 
     @model_validator(mode="after")
-    def require_question_and_answer_frames(self) -> GeneratedScript:
-        frame_types = {frame.type for frame in self.frames}
-        required = {FrameType.QUESTION, FrameType.OPTIONS, FrameType.ANSWER}
-        if not required.issubset(frame_types):
-            raise ValueError("Script must contain question, options, and answer frames.")
+    def require_production_frame_order(self) -> GeneratedScript:
+        frame_types = tuple(frame.type for frame in self.frames)
+        if frame_types != PRODUCTION_FRAME_SEQUENCE:
+            expected = " -> ".join(frame_type.value for frame_type in PRODUCTION_FRAME_SEQUENCE)
+            raise ValueError(f"Production script frame order must be: {expected}.")
         return self

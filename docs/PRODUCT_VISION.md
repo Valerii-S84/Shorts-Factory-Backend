@@ -9,7 +9,7 @@ Target video format:
 - Aspect ratio: 9:16
 - Container: MP4
 - Resolution: 1080x1920
-- Duration: 15-20 seconds, optimized for 18 seconds
+- Duration: 16-18 seconds, optimized for 17.5 seconds
 - Language: German
 - Media: AI images without text, German voice-over, backend-rendered text overlays
 - Motion: Ken Burns zoom/pan effect
@@ -63,7 +63,7 @@ The service must:
 2. Load one quiz from Quiz Bank API.
 3. Validate the quiz.
 4. Create a short German script.
-5. Generate 3-5 text-free images.
+5. Generate 6 text-free images, one per production segment.
 6. Generate German voice-over.
 7. Create a render plan.
 8. Assemble MP4 with FFmpeg.
@@ -113,6 +113,7 @@ shorts_factory/
 |
 +-- rendering/
 |   +-- render_plan.py
+|   +-- production_templates.py
 |   +-- ffmpeg_renderer.py
 |   +-- text_overlay.py
 |   +-- qa_probe.py
@@ -227,40 +228,77 @@ manual_review_required
 - `is_active`
 - `created_at`
 
-## 9. Standard 18-Second Template
+## 9. Canonical Production Video Structure
 
-Production target: 3-5 frames. Recommended default: 4 frames.
+Production target: 6 fixed segments, 16-18 seconds total. Recommended default: 17.5 seconds.
+
+Production order is fixed:
 
 ```text
-0-3 sec
-Hook:
-Kannst du das lösen?
+hook -> question -> options -> pause/countdown -> answer -> cta
+```
 
-3-7 sec
+Recommended default timing:
+
+```text
+0.0-1.5 sec
+Hook
+
+1.5-4.0 sec
 Question
 
-7-13 sec
+4.0-9.0 sec
 Options:
 A ...
 B ...
 C ...
 
-13-18 sec
-Answer:
-Richtig ist: A ...
+9.0-12.0 sec
+Countdown / thinking tension:
+3
+2
+1
+
+12.0-15.5 sec
+Answer reveal + short explanation:
+Richtig: A ...
+...
+
+15.5-17.5 sec
+CTA:
+Mehr Deutsch-Quiz im Telegram-Kanal
 ```
+
+Every production video must include:
+
+- hook;
+- exact Quiz Bank question;
+- exact Quiz Bank answer options;
+- visible countdown / thinking tension;
+- answer reveal with exact correct answer;
+- short explanation sourced from Quiz Bank explanation;
+- final CTA visible for at least 2 seconds.
+
+Available production templates:
+
+- `mistake`
+- `level_test`
+- `speed`
+- `grammar_trap`
+- `alltag`
 
 ## 10. Visual Standard
 
 Every video must use a consistent structure:
 
 - vertical 1080x1920 frame;
-- 3-5 AI images without text;
+- 6 AI images without text;
 - smooth zoom and pan;
-- large readable text overlays;
-- consistent fonts;
-- consistent question zone;
-- consistent answer zone;
+- large readable backend text overlays;
+- separate overlay layouts for hook, question, options, countdown, answer, and CTA;
+- structured A/B/C option rows;
+- visible answer reveal emphasis;
+- readable final CTA;
 - no visual chaos;
 - no tiny text.
 
@@ -284,12 +322,32 @@ OpenAI returns strict JSON:
   "frames": [
     {
       "type": "hook",
-      "text": "Kannst du das lösen?",
+      "text": "90% machen hier einen Fehler",
       "image_prompt": "..."
     },
     {
       "type": "question",
       "text": "...",
+      "image_prompt": "..."
+    },
+    {
+      "type": "options",
+      "text": "A ...\nB ...\nC ...",
+      "image_prompt": "..."
+    },
+    {
+      "type": "pause",
+      "text": "3\n2\n1",
+      "image_prompt": "..."
+    },
+    {
+      "type": "answer",
+      "text": "Richtig: A ...",
+      "image_prompt": "..."
+    },
+    {
+      "type": "cta",
+      "text": "Mehr Deutsch-Quiz im Telegram-Kanal",
       "image_prompt": "..."
     }
   ],
@@ -299,7 +357,10 @@ OpenAI returns strict JSON:
 }
 ```
 
-The backend must validate returned JSON before saving or rendering.
+The backend must validate returned JSON before saving or rendering. Production scripts must
+contain exactly six frames in the canonical order. Backend rendering remains the source of
+truth for visible question, options, correct answer, explanation excerpt, countdown, hook
+variant, and CTA variant.
 
 ## 12. Image Generation Rule
 
@@ -332,7 +393,11 @@ FFmpeg rendering must:
 - add fade transitions;
 - overlay exact text;
 - overlay voice-over;
+- render countdown;
+- render answer reveal with explanation;
+- render final CTA;
 - align duration;
+- store creative metadata;
 - export MP4;
 - verify the file.
 
@@ -343,9 +408,18 @@ The video must not be published if:
 - video file is missing;
 - file is not MP4;
 - aspect ratio is not 9:16;
-- duration is over 20 seconds;
+- duration is outside 16-18 seconds;
 - audio is missing;
 - text overlay is missing;
+- hook is missing;
+- CTA is missing;
+- frame order is not `hook -> question -> options -> pause -> answer -> cta`;
+- countdown is missing;
+- answer reveal starts outside the allowed timing;
+- answer reveal is visible before the answer segment;
+- answer explanation is missing;
+- CTA duration is under 2 seconds;
+- text overlay overflow risk is not controlled;
 - correct answer does not match Quiz Bank;
 - Telegram caption is missing;
 - YouTube title is missing;
@@ -437,7 +511,7 @@ The first complete production result:
 
 ```text
 one command or one scheduled job
-creates one finished 18-second MP4
+creates one finished 16-18 second MP4
 from one quiz
 in German
 with images

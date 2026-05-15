@@ -4,7 +4,7 @@ import subprocess
 from pathlib import Path
 
 from shorts_factory.rendering.render_plan import RenderPlan
-from shorts_factory.rendering.text_overlay import drawtext_filter
+from shorts_factory.rendering.text_overlay import drawtext_filters
 from shorts_factory.settings import Settings
 
 
@@ -35,13 +35,14 @@ def build_ffmpeg_command(settings: Settings, plan: RenderPlan) -> list[str]:
     concat_inputs = []
     for index, frame in enumerate(plan.frames):
         frame_count = max(1, int(frame.duration_sec * plan.fps))
+        overlay_filters = ",".join(drawtext_filters(frame.text_overlay))
         filters.append(
             f"[{index}:v]"
             f"scale={plan.width}:{plan.height}:force_original_aspect_ratio=increase,"
             f"crop={plan.width}:{plan.height},"
             f"zoompan=z='min(zoom+0.0015,1.08)':d={frame_count}:"
             f"s={plan.width}x{plan.height}:fps={plan.fps},"
-            f"{drawtext_filter(frame.text_overlay)},"
+            f"{overlay_filters},"
             f"setpts=PTS-STARTPTS[v{index}]"
         )
         concat_inputs.append(f"[v{index}]")

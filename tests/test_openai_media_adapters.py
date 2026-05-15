@@ -17,7 +17,7 @@ def test_openai_image_generator_writes_decoded_images(tmp_path: Path) -> None:
 
     paths = generator.generate(job_id=7, script=valid_script())
 
-    assert len(paths) == 4
+    assert len(paths) == 6
     assert all(path.read_bytes() == b"image" for path in paths)
     assert client.calls[0]["prompt"] != "German classroom with a curious student"
     assert "German classroom with a curious student" in client.calls[0]["prompt"]
@@ -168,9 +168,19 @@ def valid_script() -> GeneratedScript:
                     "image_prompt": "Learning cards on a classroom table",
                 },
                 {
+                    "type": "pause",
+                    "text": "3\n2\n1",
+                    "image_prompt": "Student thinking before choosing",
+                },
+                {
                     "type": "answer",
                     "text": "Richtig ist: A house",
                     "image_prompt": "Happy student learning vocabulary",
+                },
+                {
+                    "type": "cta",
+                    "text": "Mehr Deutsch-Quiz im Telegram-Kanal",
+                    "image_prompt": "Friendly study desk with a smartphone",
                 },
             ],
             "telegram_caption": "Deutsch Quiz",

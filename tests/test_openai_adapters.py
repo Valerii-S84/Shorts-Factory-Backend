@@ -39,7 +39,7 @@ def test_openai_script_generator_rejects_empty_parsed_response() -> None:
 
 def test_script_fact_validation_rejects_missing_correct_answer() -> None:
     script = valid_script()
-    script.frames[-1].text = "Richtig ist: B car"
+    script.frames[-2].text = "Richtig ist: B car"
 
     with pytest.raises(ScriptGenerationError, match="correct answer"):
         OpenAIScriptGenerator(_settings(), client=FakeScriptClient(script)).generate(quiz())
@@ -114,9 +114,19 @@ def valid_script() -> GeneratedScript:
                     "image_prompt": "Learning cards on a classroom table",
                 },
                 {
+                    "type": "pause",
+                    "text": "3\n2\n1",
+                    "image_prompt": "Student thinking before choosing",
+                },
+                {
                     "type": "answer",
                     "text": "Richtig ist: A house",
                     "image_prompt": "Happy student learning vocabulary",
+                },
+                {
+                    "type": "cta",
+                    "text": "Mehr Deutsch-Quiz im Telegram-Kanal",
+                    "image_prompt": "Friendly study desk with a smartphone",
                 },
             ],
             "telegram_caption": "Deutsch Quiz",

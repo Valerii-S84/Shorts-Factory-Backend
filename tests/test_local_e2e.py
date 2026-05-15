@@ -12,7 +12,14 @@ def test_offline_script_uses_quiz_facts_without_text_image_prompts() -> None:
 
     assert quiz.question in combined_text
     assert f"{quiz.correct_option_label} {quiz.correct_option.text}" in combined_text
-    assert len(script.frames) == 4
+    assert [frame.type.value for frame in script.frames] == [
+        "hook",
+        "question",
+        "options",
+        "pause",
+        "answer",
+        "cta",
+    ]
     assert all("text" not in frame.image_prompt.lower() for frame in script.frames)
 
 
