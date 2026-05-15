@@ -41,6 +41,7 @@ class Quiz(BaseModel):
     level: str
     topic: str
     status: ApprovedQuizStatus
+    delivery_id: str | None = None
 
     @field_validator("question", "explanation", "level", "topic")
     @classmethod
@@ -85,4 +86,5 @@ class Quiz(BaseModel):
             "level": self.level,
             "topic": self.topic,
             "status": self.status,
+            "delivery_id": self.delivery_id,
         }

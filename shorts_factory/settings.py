@@ -10,6 +10,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 Environment = Literal["local", "test", "development", "staging", "production"]
 YouTubePrivacyStatus = Literal["private", "unlisted", "public"]
 LOCAL_DATABASE_URL = "sqlite+pysqlite:///var/shorts_factory.db"
+QUIZ_BANK_DEFAULT_CONSUMER_ID = "shorts_factory_backend"
+QUIZ_BANK_DEFAULT_NEXT_PATH = "/v1/quiz-items/next"
 
 
 class Settings(BaseSettings):
@@ -24,9 +26,18 @@ class Settings(BaseSettings):
     database_url: str | None = Field(default=None, validation_alias="DATABASE_URL")
     api_key: SecretStr | None = Field(default=None, validation_alias="SHORTS_FACTORY_API_KEY")
     quiz_bank_base_url: str | None = Field(default=None, validation_alias="QUIZ_BANK_BASE_URL")
+    quiz_bank_edge_api_key: SecretStr | None = Field(
+        default=None, validation_alias="QUIZ_BANK_EDGE_API_KEY"
+    )
+    quiz_bank_consumer_id: str = Field(
+        default=QUIZ_BANK_DEFAULT_CONSUMER_ID, validation_alias="QUIZ_BANK_CONSUMER_ID"
+    )
     quiz_bank_api_key: SecretStr | None = Field(default=None, validation_alias="QUIZ_BANK_API_KEY")
+    quiz_bank_quota_key: SecretStr | None = Field(
+        default=None, validation_alias="QUIZ_BANK_QUOTA_KEY"
+    )
     quiz_bank_next_path: str = Field(
-        default="/quizzes/next", validation_alias="QUIZ_BANK_NEXT_PATH"
+        default=QUIZ_BANK_DEFAULT_NEXT_PATH, validation_alias="QUIZ_BANK_NEXT_PATH"
     )
     openai_api_key: SecretStr | None = Field(default=None, validation_alias="OPENAI_API_KEY")
     openai_script_model: str = Field(
@@ -71,6 +82,12 @@ class Settings(BaseSettings):
             missing.append("SHORTS_FACTORY_API_KEY")
         if self.quiz_bank_base_url is None:
             missing.append("QUIZ_BANK_BASE_URL")
+        if self.quiz_bank_edge_api_key is None:
+            missing.append("QUIZ_BANK_EDGE_API_KEY")
+        if not self.quiz_bank_consumer_id.strip():
+            missing.append("QUIZ_BANK_CONSUMER_ID")
+        if self.quiz_bank_api_key is None:
+            missing.append("QUIZ_BANK_API_KEY")
         if self.openai_api_key is None:
             missing.append("OPENAI_API_KEY")
         if self.telegram_bot_token is None:

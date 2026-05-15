@@ -36,3 +36,20 @@ def test_youtube_settings_keep_access_token_secret() -> None:
     assert settings.youtube_category_id == "27"
     assert str(settings.youtube_access_token) == "**********"
     assert settings.youtube_access_token.get_secret_value() == "youtube-token"
+
+
+def test_quiz_bank_settings_use_runtime_defaults_and_secret_values() -> None:
+    settings = Settings(
+        environment="test",
+        quiz_bank_base_url="https://api.valerchik.de",
+        quiz_bank_edge_api_key="edge-token",
+        quiz_bank_api_key="bank-token",
+        quiz_bank_quota_key="quota-token",
+    )
+
+    assert settings.quiz_bank_base_url == "https://api.valerchik.de"
+    assert settings.quiz_bank_next_path == "/v1/quiz-items/next"
+    assert settings.quiz_bank_consumer_id == "shorts_factory_backend"
+    assert str(settings.quiz_bank_edge_api_key) == "**********"
+    assert str(settings.quiz_bank_api_key) == "**********"
+    assert str(settings.quiz_bank_quota_key) == "**********"

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from shorts_factory.db.models import AssetType, JobStatus, PublishPlatform, RecordStatus
+from shorts_factory.db.models import AssetType, JobStatus, PublishPlatform, RecordStatus, VideoJob
 from shorts_factory.db.repositories import VideoJobRepository
 from shorts_factory.generation.image_generator import ImageGenerator
 from shorts_factory.generation.script_generator import ScriptGenerator
@@ -33,12 +33,15 @@ class VideoJobWorker:
 
     def run(self, job_id: int) -> None:
         job = self.repository.get(job_id)
+        delivery_id: str | None = None
+        outcome_report_started = False
         try:
             quiz = (
                 self.quiz_bank_client.fetch_quiz(job.quiz_id)
                 if job.quiz_id
                 else self.quiz_bank_client.fetch_next_approved_quiz()
             )
+            delivery_id = quiz.delivery_id
             job.quiz_id = quiz.quiz_id
             job.level = quiz.level
             job.topic = quiz.topic
@@ -100,19 +103,27 @@ class VideoJobWorker:
             )
             self.repository.update_status(job, JobStatus.QA_PASSED)
 
+            publish_failed = False
             if PublishPlatform.TELEGRAM.value in job.target_platforms:
                 self.publish_service.publish_to_telegram(job)
             if PublishPlatform.YOUTUBE.value in job.target_platforms:
                 try:
                     self.publish_service.publish_to_youtube(job)
                 except YouTubePublishError as error:
+                    publish_failed = True
                     self.repository.add_render_log(
                         job,
                         step="youtube_publish",
                         status=RecordStatus.FAILED,
                         message=str(error),
                     )
+            if delivery_id is not None:
+                outcome_report_started = True
+                outcome = "failed" if publish_failed else "sent"
+                self.quiz_bank_client.report_delivery_outcome(delivery_id, outcome)
         except Exception as error:
+            if delivery_id is not None and not outcome_report_started:
+                self._report_delivery_failed(job, delivery_id)
             self.repository.add_render_log(
                 job,
                 step="worker",
@@ -121,3 +132,14 @@ class VideoJobWorker:
             )
             self.repository.update_status(job, JobStatus.FAILED, error_message=str(error))
             raise
+
+    def _report_delivery_failed(self, job: VideoJob, delivery_id: str) -> None:
+        try:
+            self.quiz_bank_client.report_delivery_outcome(delivery_id, "failed")
+        except Exception as error:
+            self.repository.add_render_log(
+                job,
+                step="delivery_outcome",
+                status=RecordStatus.FAILED,
+                message=str(error),
+            )
