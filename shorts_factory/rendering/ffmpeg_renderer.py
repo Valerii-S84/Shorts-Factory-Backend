@@ -4,6 +4,7 @@ import subprocess
 from pathlib import Path
 
 from shorts_factory.rendering.render_plan import RenderPlan
+from shorts_factory.rendering.text_overlay import drawtext_filter
 from shorts_factory.settings import Settings
 
 
@@ -34,19 +35,25 @@ def build_ffmpeg_command(settings: Settings, plan: RenderPlan) -> list[str]:
     concat_inputs = []
     for index, frame in enumerate(plan.frames):
         frame_count = max(1, int(frame.duration_sec * plan.fps))
-        drawtext = _drawtext_filter(frame.text_overlay.text, frame.text_overlay.font_size)
         filters.append(
             f"[{index}:v]"
             f"scale={plan.width}:{plan.height}:force_original_aspect_ratio=increase,"
             f"crop={plan.width}:{plan.height},"
             f"zoompan=z='min(zoom+0.0015,1.08)':d={frame_count}:"
             f"s={plan.width}x{plan.height}:fps={plan.fps},"
-            f"{drawtext},"
+            f"{drawtext_filter(frame.text_overlay)},"
             f"setpts=PTS-STARTPTS[v{index}]"
         )
         concat_inputs.append(f"[v{index}]")
 
     filters.append(f"{''.join(concat_inputs)}concat=n={len(plan.frames)}:v=1:a=0[vout]")
+    audio_input = len(plan.frames)
+    filters.append(
+        f"[{audio_input}:a]"
+        f"atrim=0:{plan.duration_sec},"
+        "asetpts=PTS-STARTPTS,"
+        f"apad=whole_dur={plan.duration_sec}[aout]"
+    )
     command.extend(
         [
             "-filter_complex",
@@ -54,7 +61,7 @@ def build_ffmpeg_command(settings: Settings, plan: RenderPlan) -> list[str]:
             "-map",
             "[vout]",
             "-map",
-            f"{len(plan.frames)}:a",
+            "[aout]",
             "-t",
             str(plan.duration_sec),
             "-c:v",
@@ -63,23 +70,7 @@ def build_ffmpeg_command(settings: Settings, plan: RenderPlan) -> list[str]:
             "yuv420p",
             "-c:a",
             "aac",
-            "-shortest",
             plan.output_path,
         ]
     )
     return command
-
-
-def _drawtext_filter(text: str, font_size: int) -> str:
-    escaped = text.replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
-    return (
-        "drawtext="
-        f"text='{escaped}':"
-        "fontcolor=white:"
-        f"fontsize={font_size}:"
-        "box=1:"
-        "boxcolor=black@0.65:"
-        "boxborderw=24:"
-        "x=(w-text_w)/2:"
-        "y=h*0.68"
-    )

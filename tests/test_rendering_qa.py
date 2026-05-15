@@ -4,6 +4,7 @@ import pytest
 
 from shorts_factory.generation.schemas import GeneratedScript
 from shorts_factory.quiz_bank.schemas import Quiz
+from shorts_factory.rendering.ffmpeg_renderer import build_ffmpeg_command
 from shorts_factory.rendering.qa_probe import (
     QAError,
     VideoProbe,
@@ -74,6 +75,30 @@ def test_render_plan_keeps_quiz_answer_and_text_overlays(tmp_path: Path) -> None
     assert plan.has_text_overlays
     assert plan.frames[1].text_overlay.text == "A house\nB car"
     assert plan.output_path.endswith("videos/1/short.mp4")
+
+
+def test_ffmpeg_command_pads_audio_to_render_duration(tmp_path: Path) -> None:
+    settings = Settings(environment="test", media_root=tmp_path)
+    plan = build_render_plan(
+        settings=settings,
+        job_id=1,
+        quiz=quiz(),
+        script=script(),
+        image_paths=[
+            tmp_path / "1.png",
+            tmp_path / "2.png",
+            tmp_path / "3.png",
+            tmp_path / "4.png",
+        ],
+        audio_path=tmp_path / "voice.mp3",
+    )
+
+    command = build_ffmpeg_command(settings, plan)
+    filter_graph = command[command.index("-filter_complex") + 1]
+
+    assert "-shortest" not in command
+    assert "[aout]" in command
+    assert "apad=whole_dur=13.0[aout]" in filter_graph
 
 
 def test_parse_ffprobe_output_detects_audio_and_dimensions() -> None:

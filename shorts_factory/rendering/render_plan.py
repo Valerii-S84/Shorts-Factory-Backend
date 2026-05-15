@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from shorts_factory.generation.schemas import FrameType, GeneratedScript
 from shorts_factory.quiz_bank.schemas import Quiz
+from shorts_factory.rendering.text_overlay import TextOverlay
 from shorts_factory.settings import Settings
 from shorts_factory.storage.asset_paths import job_asset_path
 
@@ -17,13 +18,6 @@ FRAME_DURATIONS = {
     FrameType.ANSWER: 3.0,
     FrameType.CTA: 1.0,
 }
-
-
-class TextOverlay(BaseModel):
-    text: str
-    x: str = "(w-text_w)/2"
-    y: str = "h*0.68"
-    font_size: int = 64
 
 
 class RenderFrame(BaseModel):
