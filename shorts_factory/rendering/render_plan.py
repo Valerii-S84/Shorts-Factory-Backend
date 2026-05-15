@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from pydantic import BaseModel, Field
@@ -12,11 +11,21 @@ from shorts_factory.rendering.production_templates import (
     select_creative,
     validate_production_frame_order,
 )
-from shorts_factory.rendering.text_overlay import OverlayKind, TextOverlay, build_text_overlay
+from shorts_factory.rendering.text_overlay import (
+    OVERLAY_TEMPLATES,
+    OverlayKind,
+    TextOverlay,
+    build_text_overlay,
+    wrapped_overlay_lines,
+)
 from shorts_factory.settings import Settings
 from shorts_factory.storage.asset_paths import job_asset_path
 
 EXPLANATION_MAX_CHARS = 90
+ANSWER_OVERLAY_TARGET_MAX_LINES = 4
+ANSWER_EXPLANATION_MAX_LINES = 2
+EXPLANATION_FALLBACK_CHAR_LIMITS = (72, 64, 56, 48, 40, 32, 24, 18)
+EXPLANATION_BOUNDARY_MIN_CHARS = 12
 
 
 class RenderFrame(BaseModel):
@@ -102,7 +111,7 @@ def build_render_plan(
     selection = select_creative(job_id=job_id, quiz_level=quiz.level, quiz_topic=quiz.topic)
     output_path = job_asset_path(settings, job_id, "videos", "short.mp4")
     answer_reveal_text = f"Richtig: {quiz.correct_option_label} {quiz.correct_option.text}"
-    explanation_text = safe_explanation_excerpt(quiz.explanation)
+    explanation_text = safe_explanation_excerpt(quiz.explanation, answer_line=answer_reveal_text)
 
     frames = []
     starts_at_sec = 0.0
@@ -167,19 +176,74 @@ def build_render_plan(
     )
 
 
-def safe_explanation_excerpt(explanation: str, max_chars: int = EXPLANATION_MAX_CHARS) -> str:
+def safe_explanation_excerpt(
+    explanation: str,
+    max_chars: int = EXPLANATION_MAX_CHARS,
+    *,
+    answer_line: str | None = None,
+) -> str:
     stripped = " ".join(explanation.strip().split())
-    if len(stripped) <= max_chars:
-        return stripped
+    if answer_line is None:
+        return _trim_explanation_at_boundary(stripped, max_chars)
 
-    sentence_match = re.match(r"^(.+?[.!?])\s+", stripped)
-    if sentence_match and len(sentence_match.group(1)) <= max_chars:
-        return sentence_match.group(1)
+    template = OVERLAY_TEMPLATES[OverlayKind.ANSWER]
+    answer_line_count = len(wrapped_overlay_lines(answer_line, template.max_line_chars))
+    available_lines = min(
+        ANSWER_EXPLANATION_MAX_LINES,
+        max(1, ANSWER_OVERLAY_TARGET_MAX_LINES - answer_line_count),
+    )
+    safe_available_lines = max(1, template.max_lines - answer_line_count)
+    return _fit_explanation_excerpt(
+        stripped,
+        max_chars=max_chars,
+        max_line_chars=template.max_line_chars,
+        max_lines=min(available_lines, safe_available_lines),
+    )
 
-    excerpt = stripped[: max_chars + 1]
-    if " " in excerpt:
-        excerpt = excerpt[: excerpt.rfind(" ")]
-    return excerpt.rstrip(" ,;:") + "..."
+
+def _fit_explanation_excerpt(
+    explanation: str, *, max_chars: int, max_line_chars: int, max_lines: int
+) -> str:
+    for char_limit in _descending_char_limits(max_chars):
+        excerpt = _trim_explanation_at_boundary(explanation, char_limit)
+        if len(wrapped_overlay_lines(excerpt, max_line_chars)) <= max_lines:
+            return excerpt
+
+    shortest = _trim_explanation_at_boundary(explanation, min(max_chars, max_line_chars))
+    if len(wrapped_overlay_lines(shortest, max_line_chars)) <= max_lines:
+        return shortest
+    return wrapped_overlay_lines(shortest, max_line_chars)[0]
+
+
+def _descending_char_limits(max_chars: int) -> tuple[int, ...]:
+    limits = {max_chars, *EXPLANATION_FALLBACK_CHAR_LIMITS}
+    return tuple(sorted((limit for limit in limits if limit <= max_chars), reverse=True))
+
+
+def _trim_explanation_at_boundary(explanation: str, max_chars: int) -> str:
+    if len(explanation) <= max_chars:
+        return explanation
+
+    sentence_end = _last_boundary_index(explanation, max_chars, ".!?")
+    if sentence_end is not None:
+        return explanation[:sentence_end].rstrip()
+
+    content_limit = max(1, max_chars - 3)
+    phrase_end = _last_boundary_index(explanation, content_limit, ",;:")
+    if phrase_end is not None:
+        return explanation[:phrase_end].rstrip(" ,;:") + "..."
+
+    word_end = explanation.rfind(" ", 0, content_limit + 1)
+    if word_end >= EXPLANATION_BOUNDARY_MIN_CHARS:
+        return explanation[:word_end].rstrip(" ,;:") + "..."
+    return explanation[:content_limit].rstrip(" ,;:") + "..."
+
+
+def _last_boundary_index(text: str, max_chars: int, boundary_chars: str) -> int | None:
+    for index in range(min(len(text), max_chars) - 1, EXPLANATION_BOUNDARY_MIN_CHARS - 1, -1):
+        if text[index] in boundary_chars and (index + 1 == len(text) or text[index + 1].isspace()):
+            return index + 1
+    return None
 
 
 def _overlay_text(
