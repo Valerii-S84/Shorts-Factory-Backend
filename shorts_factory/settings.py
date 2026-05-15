@@ -1,17 +1,19 @@
 from __future__ import annotations
 
+import json
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import Field, SecretStr, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, SecretStr, field_validator, model_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 Environment = Literal["local", "test", "development", "staging", "production"]
 YouTubePrivacyStatus = Literal["private", "unlisted", "public"]
 LOCAL_DATABASE_URL = "sqlite+pysqlite:///var/shorts_factory.db"
 QUIZ_BANK_DEFAULT_CONSUMER_ID = "shorts_factory_backend"
 QUIZ_BANK_DEFAULT_NEXT_PATH = "/v1/quiz-items/next"
+QUIZ_BANK_DEFAULT_LANGUAGE = "de"
 
 
 class Settings(BaseSettings):
@@ -38,6 +40,15 @@ class Settings(BaseSettings):
     )
     quiz_bank_next_path: str = Field(
         default=QUIZ_BANK_DEFAULT_NEXT_PATH, validation_alias="QUIZ_BANK_NEXT_PATH"
+    )
+    quiz_bank_default_levels: Annotated[list[str], NoDecode] = Field(
+        default_factory=list, validation_alias="QUIZ_BANK_DEFAULT_LEVELS"
+    )
+    quiz_bank_default_themes: Annotated[list[str], NoDecode] = Field(
+        default_factory=list, validation_alias="QUIZ_BANK_DEFAULT_THEMES"
+    )
+    quiz_bank_default_language: str = Field(
+        default=QUIZ_BANK_DEFAULT_LANGUAGE, validation_alias="QUIZ_BANK_DEFAULT_LANGUAGE"
     )
     openai_api_key: SecretStr | None = Field(default=None, validation_alias="OPENAI_API_KEY")
     openai_script_model: str = Field(
@@ -100,6 +111,17 @@ class Settings(BaseSettings):
             raise ValueError(f"Missing required production configuration: {joined}.")
 
         return self
+
+    @field_validator("quiz_bank_default_levels", "quiz_bank_default_themes", mode="before")
+    @classmethod
+    def parse_quiz_bank_selection(cls, value: object) -> object:
+        if value is None or value == "":
+            return []
+        if isinstance(value, str):
+            if value.strip().startswith("["):
+                return json.loads(value)
+            return [item.strip() for item in value.split(",") if item.strip()]
+        return value
 
     @property
     def effective_database_url(self) -> str | None:

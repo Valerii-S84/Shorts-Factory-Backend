@@ -50,6 +50,19 @@ def test_quiz_bank_settings_use_runtime_defaults_and_secret_values() -> None:
     assert settings.quiz_bank_base_url == "https://api.valerchik.de"
     assert settings.quiz_bank_next_path == "/v1/quiz-items/next"
     assert settings.quiz_bank_consumer_id == "shorts_factory_backend"
+    assert settings.quiz_bank_default_levels == []
+    assert settings.quiz_bank_default_themes == []
+    assert settings.quiz_bank_default_language == "de"
     assert str(settings.quiz_bank_edge_api_key) == "**********"
     assert str(settings.quiz_bank_api_key) == "**********"
     assert str(settings.quiz_bank_quota_key) == "**********"
+
+
+def test_quiz_bank_selection_settings_parse_comma_separated_env(monkeypatch) -> None:
+    monkeypatch.setenv("QUIZ_BANK_DEFAULT_LEVELS", "custom-level-1,custom-level-2")
+    monkeypatch.setenv("QUIZ_BANK_DEFAULT_THEMES", "custom-theme")
+
+    settings = Settings(environment="test")
+
+    assert settings.quiz_bank_default_levels == ["custom-level-1", "custom-level-2"]
+    assert settings.quiz_bank_default_themes == ["custom-theme"]

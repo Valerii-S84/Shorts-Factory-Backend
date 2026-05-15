@@ -27,7 +27,7 @@ class QuizBankClient:
         response = self._client.post(
             self._url(self._settings.quiz_bank_next_path),
             headers=self._auth_headers(),
-            json={},
+            json=self._next_request_payload(),
         )
         response.raise_for_status()
         return quiz_from_next_payload(response.json())
@@ -41,17 +41,43 @@ class QuizBankClient:
         response.raise_for_status()
         return quiz_from_item_payload(response.json())
 
-    def report_delivery_outcome(self, delivery_id: str, outcome: DeliveryOutcome) -> None:
+    def report_delivery_outcome(
+        self,
+        delivery_id: str,
+        outcome: DeliveryOutcome,
+        *,
+        reason: str | None = None,
+    ) -> None:
         safe_delivery_id = quote(delivery_id, safe="")
         response = self._client.post(
             self._url(f"/v1/deliveries/{safe_delivery_id}/outcome"),
             headers=self._auth_headers(),
-            json={"outcome": outcome},
+            json=self._delivery_outcome_payload(outcome, reason),
         )
         response.raise_for_status()
 
     def _url(self, path: str) -> str:
         return f"{self._settings.quiz_bank_base_url.rstrip('/')}/{path.lstrip('/')}"
+
+    def _next_request_payload(self) -> dict[str, object]:
+        payload: dict[str, object] = {}
+        if self._settings.quiz_bank_default_language.strip():
+            payload["language"] = self._settings.quiz_bank_default_language
+        if self._settings.quiz_bank_default_levels:
+            payload["levels"] = self._settings.quiz_bank_default_levels
+        if self._settings.quiz_bank_default_themes:
+            payload["themes"] = self._settings.quiz_bank_default_themes
+        return payload
+
+    def _delivery_outcome_payload(
+        self,
+        outcome: DeliveryOutcome,
+        reason: str | None,
+    ) -> dict[str, str]:
+        payload = {"outcome": outcome}
+        if reason is not None and reason.strip():
+            payload["reason"] = reason
+        return payload
 
     def _auth_headers(self) -> dict[str, str]:
         missing = []

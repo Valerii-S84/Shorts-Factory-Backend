@@ -67,10 +67,16 @@ Useful local variables:
 - `QUIZ_BANK_API_KEY`
 - `QUIZ_BANK_QUOTA_KEY`
 - `QUIZ_BANK_NEXT_PATH`
+- `QUIZ_BANK_DEFAULT_LEVELS`
+- `QUIZ_BANK_DEFAULT_THEMES`
+- `QUIZ_BANK_DEFAULT_LANGUAGE`
 - `FFMPEG_PATH`
 - `FFPROBE_PATH`
 
 For the real Quiz Bank runtime, set `QUIZ_BANK_BASE_URL` to `https://api.valerchik.de`.
+Leave `QUIZ_BANK_DEFAULT_LEVELS` and `QUIZ_BANK_DEFAULT_THEMES` empty to use the
+allowed default item from the Quiz Bank entitlement. `QUIZ_BANK_DEFAULT_LANGUAGE`
+defaults to `de`.
 
 By default the service uses `ffmpeg` and `ffprobe` from `PATH`. On the current
 local environment they resolve to `/usr/bin/ffmpeg` and `/usr/bin/ffprobe`.

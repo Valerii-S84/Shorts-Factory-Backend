@@ -85,7 +85,7 @@ def test_quiz_bank_client_posts_trusted_next_quiz() -> None:
         assert request.headers["X-Consumer-Id"] == "shorts_factory_backend"
         assert request.headers["X-QuizBank-API-Key"] == "bank-token"
         assert request.headers["X-QuizBank-Quota-Key"] == "quota-token"
-        assert request.content == b"{}"
+        assert request.content == b'{"language":"de"}'
         return httpx.Response(
             200,
             json={"delivery_id": "delivery-1", "quiz_item": quiz_bank_item_payload()},
@@ -102,6 +102,27 @@ def test_quiz_bank_client_posts_trusted_next_quiz() -> None:
     assert quiz.correct_option_label == "B"
     assert quiz.correct_option.text == "die"
     assert quiz.delivery_id == "delivery-1"
+
+
+def test_quiz_bank_client_posts_configured_selection_without_hardcoded_levels() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.content == (
+            b'{"language":"de","levels":["custom-level"],"themes":["custom-theme"]}'
+        )
+        return httpx.Response(
+            200,
+            json={"delivery_id": "delivery-1", "quiz_item": quiz_bank_item_payload()},
+        )
+
+    settings = quiz_bank_settings()
+    settings.quiz_bank_default_levels = ["custom-level"]
+    settings.quiz_bank_default_themes = ["custom-theme"]
+    client = QuizBankClient(
+        settings,
+        http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+
+    assert client.fetch_next_approved_quiz().quiz_id == "item-1"
 
 
 def test_quiz_bank_client_rejects_missing_auth() -> None:
@@ -170,3 +191,26 @@ def test_quiz_bank_client_posts_delivery_outcome(outcome: str) -> None:
     assert requests[0].method == "POST"
     assert requests[0].url.path == "/v1/deliveries/delivery-1/outcome"
     assert requests[0].content == f'{{"outcome":"{outcome}"}}'.encode()
+
+
+def test_quiz_bank_client_posts_delivery_outcome_reason() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json={"ok": True})
+
+    client = QuizBankClient(
+        quiz_bank_settings(),
+        http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+
+    client.report_delivery_outcome(
+        "delivery-1",
+        "cancelled",
+        reason="controlled_live_smoke_no_publish",
+    )
+
+    assert requests[0].content == (
+        b'{"outcome":"cancelled","reason":"controlled_live_smoke_no_publish"}'
+    )
