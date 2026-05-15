@@ -53,6 +53,23 @@ curl -H "X-API-Key: $SHORTS_FACTORY_API_KEY" \
 ## Configuration
 
 Configuration is read from environment variables. Secrets must not be committed or logged.
+Production secrets are configured on the deployment server or in its secret manager, not in
+repository files and not in local development documentation.
+
+Current server deployment:
+
+- SSH: `ssh valerchik.de` (root user is configured in local SSH config)
+- App checkout on server: `/opt/shorts-factory-backend/app`
+- Runtime env file: `/opt/shorts-factory-backend/secrets/runtime.env`
+- Docker container: `shorts-factory-backend`
+- Local server port mapping: `127.0.0.1:8020 -> 8000`
+- Data volume on server: `/opt/shorts-factory-backend/data -> /data`
+- Runtime health checks on server: `curl -fsS http://127.0.0.1:8020/health`
+  and `curl -fsS http://127.0.0.1:8020/ready`
+
+Do not copy secret values from the server env file into the repository, terminal
+output, docs, commits, or logs. When verifying configuration, print only env
+variable names or health-check results.
 
 Useful local variables:
 

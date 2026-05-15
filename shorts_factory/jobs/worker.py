@@ -8,6 +8,7 @@ from shorts_factory.db.repositories import VideoJobRepository
 from shorts_factory.generation.image_generator import ImageGenerator
 from shorts_factory.generation.script_generator import ScriptGenerator
 from shorts_factory.generation.voice_generator import VoiceGenerator
+from shorts_factory.jobs.retry_policy import RetryAction, retry_action_for_error
 from shorts_factory.publishing.publish_service import PublishService
 from shorts_factory.publishing.youtube_publisher import YouTubePublishError
 from shorts_factory.quiz_bank.client import QuizBankClient
@@ -121,6 +122,8 @@ class VideoJobWorker:
                 outcome_report_started = True
                 outcome = "failed" if publish_failed else "sent"
                 self.quiz_bank_client.report_delivery_outcome(delivery_id, outcome)
+            if not publish_failed:
+                self.repository.update_status(job, JobStatus.DONE, finished=True)
         except Exception as error:
             if delivery_id is not None and not outcome_report_started:
                 self._report_delivery_failed(job, delivery_id)
@@ -130,7 +133,13 @@ class VideoJobWorker:
                 status=RecordStatus.FAILED,
                 message=str(error),
             )
-            self.repository.update_status(job, JobStatus.FAILED, error_message=str(error))
+            failure_status = _job_status_for_error(str(error), job.retry_count)
+            self.repository.update_status(
+                job,
+                failure_status,
+                error_message=str(error),
+                finished=failure_status in {JobStatus.FAILED, JobStatus.MANUAL_REVIEW_REQUIRED},
+            )
             raise
 
     def _report_delivery_failed(self, job: VideoJob, delivery_id: str) -> None:
@@ -143,3 +152,12 @@ class VideoJobWorker:
                 status=RecordStatus.FAILED,
                 message=str(error),
             )
+
+
+def _job_status_for_error(error_message: str, retry_count: int) -> JobStatus:
+    action = retry_action_for_error(error_message, retry_count)
+    if action == RetryAction.RETRY:
+        return JobStatus.RETRY_PENDING
+    if action == RetryAction.MANUAL_REVIEW:
+        return JobStatus.MANUAL_REVIEW_REQUIRED
+    return JobStatus.FAILED

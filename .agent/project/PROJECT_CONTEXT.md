@@ -51,7 +51,20 @@ Project-specific source of truth for Shorts Factory Backend.
 - Product quality bar: build as a full production product in staged releases; Stage 1 Telegram work must not use disposable shortcuts that weaken Stage 2 YouTube expansion
 - Project-specific forbidden actions: changing quiz facts with AI, asking image generation to draw text, publishing before QA, publishing duplicate retries, using unapproved/unpublished quizzes, storing secrets in plaintext, using n8n as product orchestration, treating the first Telegram stage as disposable code
 
-## 6. Git settings
+## 6. Server deployment context
+
+- SSH access: `ssh valerchik.de`; local SSH config defines `valerchik.de` with `User root`.
+- Server app checkout: `/opt/shorts-factory-backend/app`.
+- Runtime env file: `/opt/shorts-factory-backend/secrets/runtime.env`.
+- Docker container: `shorts-factory-backend`.
+- Server data directory: `/opt/shorts-factory-backend/data`, mounted into the container as `/data`.
+- Server-local port mapping: `127.0.0.1:8020 -> 8000`.
+- Runtime health checks: `curl -fsS http://127.0.0.1:8020/health` and `curl -fsS http://127.0.0.1:8020/ready`.
+- Current server runtime has production env vars configured for Quiz Bank, OpenAI, and Telegram.
+- Never print, copy, commit, or log values from the server env file. Verification may print only env names, health results, or non-secret service metadata.
+- Real Telegram publishing and production-like external calls still require explicit user confirmation before execution.
+
+## 7. Git settings
 
 - Default / protected branch: `main`
 - Branching strategy: feature branches from `main`, named `type/short-description`
