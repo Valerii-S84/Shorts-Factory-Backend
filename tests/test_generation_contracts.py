@@ -1,9 +1,12 @@
 import pytest
 from pydantic import ValidationError
 
+from shorts_factory.generation.image_prompt_builder import ImagePromptBuilder
+from shorts_factory.generation.image_style_contract import PRODUCTION_IMAGE_STYLE_CONTRACT
 from shorts_factory.generation.schemas import GeneratedScript
 from shorts_factory.generation.script_generator import (
     ScriptGenerationError,
+    _system_prompt,
     validate_script_preserves_quiz_facts,
 )
 from shorts_factory.quiz_bank.schemas import Quiz
@@ -36,22 +39,22 @@ def valid_script() -> GeneratedScript:
                 {
                     "type": "hook",
                     "text": "Kannst du das lösen?",
-                    "image_prompt": "German classroom, warm light, clean illustration",
+                    "image_prompt": "German classroom with a curious student",
                 },
                 {
                     "type": "question",
                     "text": "Was bedeutet 'Haus'?",
-                    "image_prompt": "Student thinking in a German class, clean illustration",
+                    "image_prompt": "Student thinking in a German class",
                 },
                 {
                     "type": "options",
                     "text": "A house\nB car",
-                    "image_prompt": "Quiz atmosphere in a German lesson, clean illustration",
+                    "image_prompt": "Learning cards on a classroom table",
                 },
                 {
                     "type": "answer",
                     "text": "Richtig ist: A house",
-                    "image_prompt": "Happy student learning vocabulary, clean illustration",
+                    "image_prompt": "Happy student learning vocabulary",
                 },
             ],
             "telegram_caption": "Deutsch Quiz",
@@ -71,6 +74,98 @@ def test_generated_script_rejects_image_prompt_text_instruction() -> None:
 
     with pytest.raises(ValidationError):
         GeneratedScript.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    "forbidden_prompt",
+    [
+        "draw text on the wall",
+        "floating letters above the desk",
+        "add a caption at the bottom",
+        "show answer options on cards",
+        "deutsche Schrift an der Tafel",
+        "show question text above the student",
+        "small labels on learning cards",
+        "UI panel in the corner",
+        "school logo on the notebook",
+        "subtle watermark near the bottom",
+    ],
+)
+def test_generated_script_blocks_standalone_visible_text_concepts(
+    forbidden_prompt: str,
+) -> None:
+    payload = valid_script().model_dump(mode="json")
+    payload["frames"][0]["image_prompt"] = forbidden_prompt
+
+    with pytest.raises(ValidationError):
+        GeneratedScript.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    "allowed_prompt",
+    [
+        "wood texture on a classroom desk",
+        "textured wooden desk beside a window",
+        "historical context shown through classroom objects",
+    ],
+)
+def test_generated_script_allows_non_forbidden_text_substrings(
+    allowed_prompt: str,
+) -> None:
+    payload = valid_script().model_dump(mode="json")
+    payload["frames"][0]["image_prompt"] = allowed_prompt
+
+    script = GeneratedScript.model_validate(payload)
+
+    assert script.frames[0].image_prompt == allowed_prompt
+
+
+def test_generated_script_rejects_less_than_three_frames() -> None:
+    payload = valid_script().model_dump(mode="json")
+    payload["frames"] = payload["frames"][:2]
+
+    with pytest.raises(ValidationError):
+        GeneratedScript.model_validate(payload)
+
+
+def test_generated_script_rejects_more_than_five_frames() -> None:
+    payload = valid_script().model_dump(mode="json")
+    payload["frames"].extend(payload["frames"][:2])
+
+    with pytest.raises(ValidationError):
+        GeneratedScript.model_validate(payload)
+
+
+def test_image_prompt_builder_includes_style_contract_and_rules() -> None:
+    prompt = ImagePromptBuilder().build("Student thinking beside a window")
+
+    assert PRODUCTION_IMAGE_STYLE_CONTRACT in prompt
+    assert "Student thinking beside a window" in prompt
+    assert "no visible text" in prompt
+    assert "main subject centered in upper/middle area" in prompt
+    assert "lower third visually calm for backend overlay" in prompt
+
+
+def test_image_prompt_builder_strips_scene_brief_whitespace() -> None:
+    prompt = ImagePromptBuilder().build("  Student thinking beside a window  ")
+
+    assert "Scene brief:\nStudent thinking beside a window\n\nNegative rules:" in prompt
+
+
+def test_image_prompt_builder_rejects_blank_scene_brief() -> None:
+    with pytest.raises(ValueError, match="scene brief"):
+        ImagePromptBuilder().build("   ")
+
+
+def test_script_system_prompt_defines_image_prompt_as_scene_brief() -> None:
+    prompt = _system_prompt()
+
+    assert "frame.image_prompt is only" in prompt
+    assert "scene brief, not a full style prompt" in prompt
+    assert "question text" in prompt
+    assert "answer options" in prompt
+    assert "logos" in prompt
+    assert "watermarks" in prompt
 
 
 def test_generated_script_rejects_changed_question() -> None:

@@ -113,32 +113,22 @@ def _script_frames(quiz: Quiz) -> list[ScriptFrame]:
         ScriptFrame(
             type=FrameType.HOOK,
             text="Kannst du das lösen?",
-            image_prompt="Bright study room with pencils and a notebook, clean realistic scene",
+            image_prompt="Bright study room with pencils and a notebook",
         ),
         ScriptFrame(
             type=FrameType.QUESTION,
             text=quiz.question,
-            image_prompt="Student thinking at a desk in warm daylight, clean realistic scene",
+            image_prompt="Student thinking at a desk in warm daylight",
         ),
         ScriptFrame(
             type=FrameType.OPTIONS,
             text=options_text,
-            image_prompt="Three colorful learning cards on a table, clean realistic scene",
-        ),
-        ScriptFrame(
-            type=FrameType.PAUSE,
-            text="Denk kurz nach ...",
-            image_prompt="Quiet classroom corner with clock and notebooks, clean realistic scene",
+            image_prompt="Three colorful learning cards on a table",
         ),
         ScriptFrame(
             type=FrameType.ANSWER,
             text=f"Richtig ist: {quiz.correct_option_label} {quiz.correct_option.text}",
-            image_prompt="Happy learner beside a small bridge model, clean realistic scene",
-        ),
-        ScriptFrame(
-            type=FrameType.CTA,
-            text="Mehr Deutsch-Quiz? Folge uns!",
-            image_prompt="Organized language learning desk, clean realistic scene",
+            image_prompt="Happy learner beside a small bridge model",
         ),
     ]
 

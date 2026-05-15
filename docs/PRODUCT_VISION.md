@@ -105,6 +105,8 @@ shorts_factory/
 |
 +-- generation/
 |   +-- script_generator.py
+|   +-- image_style_contract.py
+|   +-- image_prompt_builder.py
 |   +-- image_generator.py
 |   +-- voice_generator.py
 |   +-- metadata_generator.py
@@ -227,31 +229,25 @@ manual_review_required
 
 ## 9. Standard 18-Second Template
 
+Production target: 3-5 frames. Recommended default: 4 frames.
+
 ```text
-0-2 sec
+0-3 sec
 Hook:
 Kannst du das lösen?
 
-2-6 sec
+3-7 sec
 Question
 
-6-11 sec
+7-13 sec
 Options:
 A ...
 B ...
 C ...
 
-11-14 sec
-Pause:
-Denk kurz nach ...
-
-14-17 sec
+13-18 sec
 Answer:
 Richtig ist: A ...
-
-17-18 sec
-CTA:
-Mehr Deutsch-Quiz? Folge uns!
 ```
 
 ## 10. Visual Standard
@@ -265,7 +261,6 @@ Every video must use a consistent structure:
 - consistent fonts;
 - consistent question zone;
 - consistent answer zone;
-- consistent CTA zone;
 - no visual chaos;
 - no tiny text.
 
@@ -309,11 +304,13 @@ The backend must validate returned JSON before saving or rendering.
 ## 12. Image Generation Rule
 
 Images are generated without text.
+`frame.image_prompt` stores only a scene brief. The backend adds the central image
+style contract, negative rules, and composition rules before calling the image API.
 
 Valid prompt direction:
 
 ```text
-German classroom, blackboard, person thinking, quiz atmosphere, clean illustration
+German classroom, person thinking beside a window, wooden desk, notebooks
 ```
 
 Invalid prompt direction:

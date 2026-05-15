@@ -1,8 +1,24 @@
 from __future__ import annotations
 
+import re
 from enum import StrEnum
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+
+FORBIDDEN_IMAGE_PROMPT_PATTERNS = (
+    re.compile(r"(?<!\w)text(?!\w)", re.IGNORECASE),
+    re.compile(r"(?<!\w)words?(?!\w)", re.IGNORECASE),
+    re.compile(r"(?<!\w)letters?(?!\w)", re.IGNORECASE),
+    re.compile(r"(?<!\w)captions?(?!\w)", re.IGNORECASE),
+    re.compile(r"(?<!\w)question\s+text(?!\w)", re.IGNORECASE),
+    re.compile(r"(?<!\w)answer\s+options?(?!\w)", re.IGNORECASE),
+    re.compile(r"(?<!\w)labels?(?!\w)", re.IGNORECASE),
+    re.compile(r"(?<!\w)signs?(?!\w)", re.IGNORECASE),
+    re.compile(r"(?<!\w)ui(?!\w)", re.IGNORECASE),
+    re.compile(r"(?<!\w)logos?(?!\w)", re.IGNORECASE),
+    re.compile(r"(?<!\w)watermarks?(?!\w)", re.IGNORECASE),
+    re.compile(r"(?<!\w)schrift(?!\w)", re.IGNORECASE),
+)
 
 
 class FrameType(StrEnum):
@@ -30,9 +46,7 @@ class ScriptFrame(BaseModel):
     @field_validator("image_prompt")
     @classmethod
     def reject_text_in_image_prompt(cls, value: str) -> str:
-        forbidden = ["text", "words", "letters", "question", "answer options", "schrift"]
-        lowered = value.lower()
-        if any(token in lowered for token in forbidden):
+        if any(pattern.search(value) for pattern in FORBIDDEN_IMAGE_PROMPT_PATTERNS):
             raise ValueError("Image prompts must not ask the image model to draw text.")
         return value
 
@@ -40,7 +54,7 @@ class ScriptFrame(BaseModel):
 class GeneratedScript(BaseModel):
     hook: str
     voiceover: str
-    frames: list[ScriptFrame] = Field(min_length=3, max_length=6)
+    frames: list[ScriptFrame] = Field(min_length=3, max_length=5)
     telegram_caption: str
     youtube_title: str
     youtube_description: str

@@ -101,22 +101,22 @@ def valid_script() -> GeneratedScript:
                 {
                     "type": "hook",
                     "text": "Hook",
-                    "image_prompt": "German classroom, warm light, clean illustration",
+                    "image_prompt": "German classroom with a curious student",
                 },
                 {
                     "type": "question",
                     "text": "Was bedeutet 'Haus'?",
-                    "image_prompt": "Student thinking in a German class, clean illustration",
+                    "image_prompt": "Student thinking in a German class",
                 },
                 {
                     "type": "options",
                     "text": "A house\nB car",
-                    "image_prompt": "Quiz atmosphere in a German lesson, clean illustration",
+                    "image_prompt": "Learning cards on a classroom table",
                 },
                 {
                     "type": "answer",
                     "text": "Richtig ist: A house",
-                    "image_prompt": "Happy student learning vocabulary, clean illustration",
+                    "image_prompt": "Happy student learning vocabulary",
                 },
             ],
             "telegram_caption": "Deutsch Quiz",

@@ -55,6 +55,15 @@ class Settings(BaseSettings):
         default="gpt-4o-2024-08-06", validation_alias="OPENAI_SCRIPT_MODEL"
     )
     openai_image_model: str = Field(default="gpt-image-1", validation_alias="OPENAI_IMAGE_MODEL")
+    openai_image_size: str = Field(default="1024x1536", validation_alias="OPENAI_IMAGE_SIZE")
+    openai_image_quality: str = Field(default="high", validation_alias="OPENAI_IMAGE_QUALITY")
+    openai_image_background: str = Field(
+        default="opaque", validation_alias="OPENAI_IMAGE_BACKGROUND"
+    )
+    openai_image_output_format: str = Field(
+        default="png", validation_alias="OPENAI_IMAGE_OUTPUT_FORMAT"
+    )
+    openai_image_moderation: str = Field(default="auto", validation_alias="OPENAI_IMAGE_MODERATION")
     openai_tts_model: str = Field(default="gpt-4o-mini-tts", validation_alias="OPENAI_TTS_MODEL")
     openai_voice: str = Field(default="alloy", validation_alias="OPENAI_VOICE")
     telegram_bot_token: SecretStr | None = Field(

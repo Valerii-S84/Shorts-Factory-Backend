@@ -66,6 +66,9 @@ def _system_prompt() -> str:
     return (
         "You create German short-video quiz scripts as strict JSON. "
         "The quiz facts are immutable: question, options, correct answer, explanation, "
-        "level, and topic must not be changed. Image prompts must describe scenes only "
-        "and must never ask for text, letters, captions, questions, or answers inside images."
+        "level, and topic must not be changed. For each frame, frame.image_prompt is only "
+        "a concise scene brief, not a full style prompt. Do not include style words that "
+        "conflict with the backend's centralized image style contract. It must not request "
+        "text, letters, captions, question text, answer options, labels, signs, UI, logos, "
+        "or watermarks inside images."
     )

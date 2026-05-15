@@ -29,6 +29,35 @@ def test_api_key_is_secret_value() -> None:
     assert settings.api_key.get_secret_value() == "super-secret"
 
 
+def test_openai_image_settings_use_production_defaults() -> None:
+    settings = Settings(environment="test")
+
+    assert settings.openai_image_model == "gpt-image-1"
+    assert settings.openai_image_size == "1024x1536"
+    assert settings.openai_image_quality == "high"
+    assert settings.openai_image_background == "opaque"
+    assert settings.openai_image_output_format == "png"
+    assert settings.openai_image_moderation == "auto"
+
+
+def test_openai_image_settings_can_be_overridden_from_env(monkeypatch) -> None:
+    monkeypatch.setenv("OPENAI_IMAGE_MODEL", "image-env")
+    monkeypatch.setenv("OPENAI_IMAGE_SIZE", "1536x1024")
+    monkeypatch.setenv("OPENAI_IMAGE_QUALITY", "medium")
+    monkeypatch.setenv("OPENAI_IMAGE_BACKGROUND", "transparent")
+    monkeypatch.setenv("OPENAI_IMAGE_OUTPUT_FORMAT", "webp")
+    monkeypatch.setenv("OPENAI_IMAGE_MODERATION", "low")
+
+    settings = Settings(environment="test")
+
+    assert settings.openai_image_model == "image-env"
+    assert settings.openai_image_size == "1536x1024"
+    assert settings.openai_image_quality == "medium"
+    assert settings.openai_image_background == "transparent"
+    assert settings.openai_image_output_format == "webp"
+    assert settings.openai_image_moderation == "low"
+
+
 def test_youtube_settings_keep_access_token_secret() -> None:
     settings = Settings(environment="test", youtube_access_token="youtube-token")
 
