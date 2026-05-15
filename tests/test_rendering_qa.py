@@ -177,7 +177,11 @@ def test_ffmpeg_command_pads_audio_to_render_duration(tmp_path: Path) -> None:
     filter_graph = command[command.index("-filter_complex") + 1]
 
     assert "-shortest" not in command
+    assert "-loop" not in command
+    assert command.count("-t") == 1
     assert "[aout]" in command
+    assert "textfile='" in filter_graph
+    assert "\\n" not in filter_graph
     assert "apad=whole_dur=17.5[aout]" in filter_graph
     assert "between(t\\,0.0\\,1.0)" not in filter_graph
     assert "between(t,0.0,1.0)" in filter_graph
