@@ -46,9 +46,23 @@ class QuizBankItem(BaseModel):
     question: str
     options: list[QuizBankOption]
     feedback: QuizBankFeedback
-    level: str
+    level: str = Field(validation_alias=AliasChoices("level", "cefr_level"))
     topic: str = Field(validation_alias=AliasChoices("topic", "theme"))
     status: ApprovedQuizStatus
+
+    @field_validator("question", mode="before")
+    @classmethod
+    def parse_question(cls, value: object) -> object:
+        if isinstance(value, dict):
+            return value.get("text")
+        return value
+
+    @field_validator("topic", mode="before")
+    @classmethod
+    def parse_topic(cls, value: object) -> object:
+        if isinstance(value, dict):
+            return value.get("title") or value.get("slug") or value.get("id")
+        return value
 
     @field_validator("item_id", "question", "level", "topic")
     @classmethod
@@ -80,6 +94,8 @@ def quiz_from_next_payload(payload: object) -> Quiz:
 
 
 def quiz_from_item_payload(payload: object) -> Quiz:
+    if isinstance(payload, dict) and "quiz_item" in payload:
+        payload = payload["quiz_item"]
     return quiz_from_item(QuizBankItem.model_validate(payload))
 
 

@@ -151,7 +151,7 @@ def test_quiz_bank_item_to_render_and_publish_reports_delivery_outcome(tmp_path:
         assert completed_job.status == JobStatus.TELEGRAM_PUBLISHED.value
         assert completed_job.video_path is not None
         assert completed_job.render_plan_json["quiz_id"] == "item-1"
-        assert outcomes == [{"outcome": "sent"}]
+        assert outcomes == [{"status": "sent"}]
     finally:
         session.close()
         engine.dispose()

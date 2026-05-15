@@ -60,13 +60,11 @@ class QuizBankClient:
         return f"{self._settings.quiz_bank_base_url.rstrip('/')}/{path.lstrip('/')}"
 
     def _next_request_payload(self) -> dict[str, object]:
-        payload: dict[str, object] = {}
-        if self._settings.quiz_bank_default_language.strip():
-            payload["language"] = self._settings.quiz_bank_default_language
-        if self._settings.quiz_bank_default_levels:
-            payload["levels"] = self._settings.quiz_bank_default_levels
+        payload: dict[str, object] = {"consumer_id": self._settings.quiz_bank_consumer_id}
+        if len(self._settings.quiz_bank_default_levels) == 1:
+            payload["cefr_level"] = self._settings.quiz_bank_default_levels[0]
         if self._settings.quiz_bank_default_themes:
-            payload["themes"] = self._settings.quiz_bank_default_themes
+            payload["theme_ids"] = self._settings.quiz_bank_default_themes
         return payload
 
     def _delivery_outcome_payload(
@@ -74,7 +72,7 @@ class QuizBankClient:
         outcome: DeliveryOutcome,
         reason: str | None,
     ) -> dict[str, str]:
-        payload = {"outcome": outcome}
+        payload = {"status": outcome}
         if reason is not None and reason.strip():
             payload["reason"] = reason
         return payload

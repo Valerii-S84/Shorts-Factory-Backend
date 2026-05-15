@@ -43,6 +43,18 @@ def quiz_bank_item_payload() -> dict[str, object]:
     }
 
 
+def real_quiz_bank_item_payload() -> dict[str, object]:
+    payload = quiz_bank_item_payload()
+    payload["question"] = {
+        "text": "Welcher Artikel passt zu Brücke?",
+        "prompt": "",
+        "stem": "Welcher Artikel passt zu Brücke?",
+    }
+    payload["cefr_level"] = payload.pop("level")
+    payload["theme"] = {"id": "T01", "title": "Artikel", "slug": "artikel"}
+    return payload
+
+
 def quiz_bank_settings() -> Settings:
     return Settings(
         environment="test",
@@ -85,7 +97,7 @@ def test_quiz_bank_client_posts_trusted_next_quiz() -> None:
         assert request.headers["X-Consumer-Id"] == "shorts_factory_backend"
         assert request.headers["X-QuizBank-API-Key"] == "bank-token"
         assert request.headers["X-QuizBank-Quota-Key"] == "quota-token"
-        assert request.content == b'{"language":"de"}'
+        assert request.content == b'{"consumer_id":"shorts_factory_backend"}'
         return httpx.Response(
             200,
             json={"delivery_id": "delivery-1", "quiz_item": quiz_bank_item_payload()},
@@ -107,7 +119,8 @@ def test_quiz_bank_client_posts_trusted_next_quiz() -> None:
 def test_quiz_bank_client_posts_configured_selection_without_hardcoded_levels() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.content == (
-            b'{"language":"de","levels":["custom-level"],"themes":["custom-theme"]}'
+            b'{"consumer_id":"shorts_factory_backend",'
+            b'"cefr_level":"custom-level","theme_ids":["custom-theme"]}'
         )
         return httpx.Response(
             200,
@@ -155,6 +168,23 @@ def test_quiz_bank_adapter_maps_item_payload_to_internal_quiz() -> None:
     assert quiz.status == "approved"
 
 
+def test_quiz_bank_adapter_maps_real_item_projection_to_internal_quiz() -> None:
+    quiz = quiz_from_item_payload(real_quiz_bank_item_payload())
+
+    assert quiz.quiz_id == "item-1"
+    assert quiz.question == "Welcher Artikel passt zu Brücke?"
+    assert quiz.correct_option_label == "B"
+    assert quiz.level == "A1"
+    assert quiz.topic == "Artikel"
+
+
+def test_quiz_bank_adapter_maps_trusted_get_response_wrapper() -> None:
+    quiz = quiz_from_item_payload({"quiz_item": real_quiz_bank_item_payload()})
+
+    assert quiz.quiz_id == "item-1"
+    assert quiz.correct_option_label == "B"
+
+
 def test_quiz_bank_client_fetches_manual_quiz_id() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.method == "GET"
@@ -190,7 +220,7 @@ def test_quiz_bank_client_posts_delivery_outcome(outcome: str) -> None:
 
     assert requests[0].method == "POST"
     assert requests[0].url.path == "/v1/deliveries/delivery-1/outcome"
-    assert requests[0].content == f'{{"outcome":"{outcome}"}}'.encode()
+    assert requests[0].content == f'{{"status":"{outcome}"}}'.encode()
 
 
 def test_quiz_bank_client_posts_delivery_outcome_reason() -> None:
@@ -212,5 +242,5 @@ def test_quiz_bank_client_posts_delivery_outcome_reason() -> None:
     )
 
     assert requests[0].content == (
-        b'{"outcome":"cancelled","reason":"controlled_live_smoke_no_publish"}'
+        b'{"status":"cancelled","reason":"controlled_live_smoke_no_publish"}'
     )
