@@ -1,0 +1,54 @@
+name: Deploy VPS
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_ref:
+        description: "Branch, tag, or commit to deploy"
+        required: false
+        default: "main"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Validate required secrets
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+        run: |
+          set -euo pipefail
+          test -n "${VPS_HOST}"
+          test -n "${VPS_USER}"
+          test -n "${VPS_SSH_KEY}"
+          test -n "${VPS_PORT:-22}"
+
+      - name: Deploy Shorts Factory Backend
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          DEPLOY_REF: ${{ inputs.deploy_ref }}
+        run: |
+          set -euo pipefail
+          case "${DEPLOY_REF}" in
+            *[!A-Za-z0-9._/-]*|"")
+              echo "Invalid deploy_ref: ${DEPLOY_REF}" >&2
+              exit 1
+              ;;
+          esac
+          key_file="$(mktemp)"
+          trap 'rm -f "${key_file}"' EXIT
+          printf '%s\n' "${VPS_SSH_KEY}" > "${key_file}"
+          chmod 600 "${key_file}"
+          port="${VPS_PORT:-22}"
+          ssh -i "${key_file}" \
+            -p "${port}" \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=accept-new \
+            "${VPS_USER}@${VPS_HOST}" \
+            "cd /opt/shorts-factory-backend/repo && bash scripts/deploy_vps_shorts_factory.sh '${DEPLOY_REF}'"

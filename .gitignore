@@ -11,6 +11,12 @@ venv/
 .env
 .env.*
 !.env.example
+runtime.env
+*.runtime.env
+secrets/
+*.pem
+*.key
+id_rsa*
 
 dist/
 build/
@@ -19,6 +25,13 @@ htmlcov/
 coverage.xml
 
 var/
+data/
+media/
+generated/
+outputs/
+videos/
+images/
+audio/
 *.mp4
 *.wav
 *.mp3
