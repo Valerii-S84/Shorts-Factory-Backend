@@ -48,12 +48,12 @@ wait_for_http() {
 
 resolve_ref() {
   local ref="$1"
-  git fetch --prune origin
+  git fetch --prune origin >&2
   if git rev-parse --verify --quiet "origin/${ref}^{commit}" >/dev/null; then
-    git checkout -B "${ref}" "origin/${ref}"
-    git pull --ff-only origin "${ref}"
+    git checkout -B "${ref}" "origin/${ref}" >&2
+    git pull --ff-only origin "${ref}" >&2
   elif git rev-parse --verify --quiet "${ref}^{commit}" >/dev/null; then
-    git checkout --detach "${ref}"
+    git checkout --detach "${ref}" >&2
   else
     echo "Cannot resolve deploy ref: ${ref}" >&2
     exit 1
