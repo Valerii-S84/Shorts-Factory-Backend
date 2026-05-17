@@ -5,6 +5,11 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 from shorts_factory.generation.schemas import FrameType, GeneratedScript
+from shorts_factory.generation.voiceover_script import (
+    VoiceoverPlan,
+    build_voiceover_plan,
+    validate_voiceover_plan,
+)
 from shorts_factory.quiz_bank.schemas import Quiz
 from shorts_factory.rendering.production_templates import (
     CreativeSelection,
@@ -47,11 +52,18 @@ class CreativeMetadata(BaseModel):
     frame_sequence: list[str]
     answer_reveal_at_sec: float
     has_countdown: bool
-    has_cta: bool
-    image_count: int
     has_voiceover: bool
     has_music: bool
     has_sfx: bool
+    voice_model: str
+    voice_id: str
+    voice_speed: float
+    audio_path: str
+    audio_checksum: str | None = None
+    narration_parts_count: int
+    narration_contains_question: bool
+    narration_contains_all_options: bool
+    narration_contains_correct_answer: bool
     platform: str | None = None
     publish_url: str | None = None
 
@@ -64,18 +76,28 @@ class RenderPlan(BaseModel):
     width: int = 1080
     height: int = 1920
     fps: int = 30
-    duration_sec: float = 15.5
+    duration_sec: float = 18.0
     audio_path: str
+    audio_checksum: str | None = None
     output_path: str
-    frames: list[RenderFrame] = Field(min_length=3, max_length=3)
+    frames: list[RenderFrame] = Field(min_length=1)
     template_id: str
     answer_reveal_at_sec: float
     has_countdown: bool
-    has_cta: bool
-    image_count: int
     has_voiceover: bool = True
     has_music: bool = False
     has_sfx: bool = False
+    voice_model: str
+    voice_id: str
+    voice_speed: float
+    narration_text: str
+    narration_parts: list[str] = Field(min_length=3, max_length=3)
+    narration_estimated_duration_sec: float
+    narration_parts_count: int
+    narration_contains_question: bool
+    narration_contains_all_options: bool
+    narration_contains_correct_answer: bool
+    audio_trim_policy: str = "trim_or_pad_to_video_duration"
     answer_reveal_text: str
     explanation_text: str
     correct_option_label: str
@@ -101,12 +123,19 @@ def build_render_plan(
     script: GeneratedScript,
     image_paths: list[Path],
     audio_path: Path,
+    audio_checksum: str | None = None,
+    voiceover_plan: VoiceoverPlan | None = None,
+    voice_model: str | None = None,
+    voice_id: str | None = None,
+    voice_speed: float | None = None,
 ) -> RenderPlan:
-    if len(image_paths) != len(script.frames):
-        raise ValueError("Render plan requires exactly one image per script frame.")
+    if len(image_paths) < len(script.frames):
+        raise ValueError("Render plan requires one image per script frame.")
 
     frame_types = tuple(frame.type for frame in script.frames)
     validate_production_frame_order(frame_types)
+    narration = voiceover_plan or build_voiceover_plan(quiz, speed=settings.openai_tts_speed)
+    validate_voiceover_plan(narration, quiz)
 
     selection = select_creative(job_id=job_id, quiz_level=quiz.level, quiz_topic=quiz.topic)
     output_path = job_asset_path(settings, job_id, "videos", "short.mp4")
@@ -142,12 +171,19 @@ def build_render_plan(
         duration_sec=duration,
         frame_sequence=[frame.type.value for frame in frames],
         answer_reveal_at_sec=selection.template.answer_reveal_at_sec,
-        has_countdown=selection.template.has_countdown,
-        has_cta=selection.template.has_cta,
-        image_count=selection.template.image_count,
+        has_countdown=False,
         has_voiceover=True,
         has_music=False,
         has_sfx=False,
+        voice_model=voice_model or settings.openai_tts_model,
+        voice_id=voice_id or settings.openai_tts_voice,
+        voice_speed=voice_speed or settings.openai_tts_speed,
+        audio_path=str(audio_path),
+        audio_checksum=audio_checksum,
+        narration_parts_count=len(narration.parts),
+        narration_contains_question=narration.narration_contains_question,
+        narration_contains_all_options=narration.narration_contains_all_options,
+        narration_contains_correct_answer=narration.narration_contains_correct_answer,
     )
     return RenderPlan(
         job_id=job_id,
@@ -156,16 +192,25 @@ def build_render_plan(
         topic=quiz.topic,
         duration_sec=duration,
         audio_path=str(audio_path),
+        audio_checksum=audio_checksum,
         output_path=str(output_path),
         frames=frames,
         template_id=selection.template.template_id,
         answer_reveal_at_sec=selection.template.answer_reveal_at_sec,
-        has_countdown=selection.template.has_countdown,
-        has_cta=selection.template.has_cta,
-        image_count=selection.template.image_count,
+        has_countdown=False,
         has_voiceover=True,
         has_music=False,
         has_sfx=False,
+        voice_model=voice_model or settings.openai_tts_model,
+        voice_id=voice_id or settings.openai_tts_voice,
+        voice_speed=voice_speed or settings.openai_tts_speed,
+        narration_text=narration.text,
+        narration_parts=[part.text for part in narration.parts],
+        narration_estimated_duration_sec=narration.estimated_duration_sec,
+        narration_parts_count=len(narration.parts),
+        narration_contains_question=narration.narration_contains_question,
+        narration_contains_all_options=narration.narration_contains_all_options,
+        narration_contains_correct_answer=narration.narration_contains_correct_answer,
         answer_reveal_text=answer_reveal_text,
         explanation_text=explanation_text,
         correct_option_label=quiz.correct_option_label,
@@ -260,7 +305,7 @@ def _overlay_text(
     if frame_type == FrameType.OPTIONS:
         return "\n".join(f"{option.label}  {option.text}" for option in quiz.options)
     if frame_type == FrameType.PAUSE:
-        return "3\n2\n1"
+        return generated_text
     if frame_type == FrameType.ANSWER:
         answer_line = f"Richtig: {quiz.correct_option_label} {quiz.correct_option.text}"
         return f"{answer_line}\n{explanation_text}"

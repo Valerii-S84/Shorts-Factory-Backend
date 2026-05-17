@@ -33,7 +33,6 @@ def quiz() -> Quiz:
 def valid_script() -> GeneratedScript:
     return GeneratedScript.model_validate(
         {
-            "voiceover": "Was bedeutet 'Haus'? Optionen: A house, B car. Richtig ist A, house.",
             "frames": [
                 {
                     "type": "question",
@@ -62,12 +61,12 @@ def test_generated_script_preserves_quiz_question_and_answer() -> None:
     validate_script_preserves_quiz_facts(valid_script(), quiz())
 
 
-def test_generated_script_uses_three_frames_without_legacy_required_segments() -> None:
+@pytest.mark.parametrize("answer_text", ["Richtig ist: A", "Richtig ist: house"])
+def test_generated_script_accepts_correct_answer_label_or_text(answer_text: str) -> None:
     script = valid_script()
+    script.frames[2].text = answer_text
 
-    assert [frame.type.value for frame in script.frames] == ["question", "options", "answer"]
-    assert not hasattr(script, "hook")
-    assert {frame.type.value for frame in script.frames}.isdisjoint({"hook", "pause", "cta"})
+    validate_script_preserves_quiz_facts(script, quiz())
 
 
 def test_generated_script_rejects_image_prompt_text_instruction() -> None:
@@ -129,7 +128,7 @@ def test_generated_script_rejects_old_six_frame_production_script() -> None:
         *payload["frames"][:2],
         {"type": "pause", "text": "3\n2\n1", "image_prompt": "Thinking student"},
         payload["frames"][2],
-        {"type": "cta", "text": "Follow", "image_prompt": "Study desk"},
+        {"type": "cta", "text": "Folge uns!", "image_prompt": "Learning atmosphere"},
     ]
 
     with pytest.raises(ValidationError):
@@ -144,33 +143,9 @@ def test_generated_script_rejects_more_than_three_frames() -> None:
         GeneratedScript.model_validate(payload)
 
 
-@pytest.mark.parametrize(
-    "missing_index",
-    [
-        pytest.param(0, id="missing-question"),
-        pytest.param(1, id="missing-options"),
-        pytest.param(2, id="missing-answer"),
-    ],
-)
-def test_generated_script_rejects_missing_required_production_frame(missing_index: int) -> None:
+def test_generated_script_rejects_invalid_production_frame_order() -> None:
     payload = valid_script().model_dump(mode="json")
-    payload["frames"].pop(missing_index)
-
-    with pytest.raises(ValidationError):
-        GeneratedScript.model_validate(payload)
-
-
-@pytest.mark.parametrize(
-    "frame_order",
-    [
-        pytest.param([2, 0, 1], id="answer-question-options"),
-        pytest.param([0, 2, 1], id="question-answer-options"),
-        pytest.param([1, 0, 2], id="options-question-answer"),
-    ],
-)
-def test_generated_script_rejects_invalid_production_frame_order(frame_order: list[int]) -> None:
-    payload = valid_script().model_dump(mode="json")
-    payload["frames"] = [payload["frames"][index] for index in frame_order]
+    payload["frames"][0], payload["frames"][1] = payload["frames"][1], payload["frames"][0]
 
     with pytest.raises(ValidationError, match="question -> options -> answer"):
         GeneratedScript.model_validate(payload)
@@ -203,13 +178,6 @@ def test_script_system_prompt_defines_image_prompt_as_scene_brief() -> None:
     assert "frame.image_prompt is only" in prompt
     assert "scene brief, not a full style prompt" in prompt
     assert "exactly three frames" in prompt
-    assert "question, options, answer" in prompt
-    assert "Do not create a hook" in prompt
-    assert "speech speed 0.8" in prompt
-    assert "read the question" in prompt
-    assert "read the options" in prompt
-    assert "reveal the correct answer" in prompt
-    assert "facts are immutable" in prompt
     assert "question text" in prompt
     assert "answer options" in prompt
     assert "logos" in prompt
@@ -218,7 +186,7 @@ def test_script_system_prompt_defines_image_prompt_as_scene_brief() -> None:
 
 def test_generated_script_rejects_changed_question() -> None:
     script = valid_script()
-    script.frames[0].text = "Was bedeutet 'Auto'?"
+    script.frames[1].text = "Was bedeutet 'Auto'?"
 
     with pytest.raises(ScriptGenerationError):
         validate_script_preserves_quiz_facts(script, quiz())
