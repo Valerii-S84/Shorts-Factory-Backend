@@ -38,6 +38,7 @@ def test_openai_image_settings_use_production_defaults() -> None:
     assert settings.openai_image_background == "opaque"
     assert settings.openai_image_output_format == "png"
     assert settings.openai_image_moderation == "auto"
+    assert settings.openai_voice_speed == 0.8
 
 
 def test_openai_image_settings_can_be_overridden_from_env(monkeypatch) -> None:

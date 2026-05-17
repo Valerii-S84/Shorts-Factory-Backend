@@ -11,6 +11,7 @@ IMAGE_NEGATIVE_RULES = (
     "no watermarks",
     "no question text",
     "no answer options",
+    "no signs",
 )
 
 IMAGE_COMPOSITION_RULES = (

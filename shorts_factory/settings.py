@@ -66,6 +66,7 @@ class Settings(BaseSettings):
     openai_image_moderation: str = Field(default="auto", validation_alias="OPENAI_IMAGE_MODERATION")
     openai_tts_model: str = Field(default="gpt-4o-mini-tts", validation_alias="OPENAI_TTS_MODEL")
     openai_voice: str = Field(default="alloy", validation_alias="OPENAI_VOICE")
+    openai_voice_speed: float = Field(default=0.8, validation_alias="OPENAI_VOICE_SPEED")
     telegram_bot_token: SecretStr | None = Field(
         default=None, validation_alias="TELEGRAM_BOT_TOKEN"
     )

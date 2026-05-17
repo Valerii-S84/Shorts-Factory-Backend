@@ -3,9 +3,10 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from shorts_factory.db.models import AssetType
+from shorts_factory.db.models import AssetType, Base, JobStatus
 from shorts_factory.db.repositories import VideoJobRepository
 from shorts_factory.db.session import create_database_engine, create_session_factory
+from shorts_factory.jobs.scheduler import create_manual_job
 from shorts_factory.main import create_app
 from shorts_factory.settings import Settings
 
@@ -110,6 +111,31 @@ def test_jobs_api_retries_job(tmp_path: Path) -> None:
     assert response.status_code == 200
     assert response.json()["retry_count"] == 1
     assert response.json()["status"] == "retry_pending"
+
+
+def test_manual_job_creation_does_not_retry_existing_failed_job(tmp_path: Path) -> None:
+    repository, session, engine = _repository(_settings(tmp_path).database_url)
+    Base.metadata.create_all(engine)
+    try:
+        failed_job = repository.create(quiz_id="old-quiz", target_platforms=[])
+        failed_job.retry_count = 3
+        repository.update_status(
+            failed_job,
+            JobStatus.FAILED,
+            error_message="old render failed",
+            finished=True,
+        )
+
+        new_job_id = create_manual_job(repository, quiz_id="new-quiz", target_platforms=[])
+
+        session.flush()
+        assert new_job_id != failed_job.id
+        assert failed_job.status == JobStatus.FAILED.value
+        assert failed_job.retry_count == 3
+        assert repository.get(new_job_id).status == JobStatus.CREATED.value
+    finally:
+        session.close()
+        engine.dispose()
 
 
 def test_jobs_api_publish_telegram_conflict_without_config(tmp_path: Path) -> None:
