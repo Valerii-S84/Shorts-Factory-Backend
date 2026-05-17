@@ -9,7 +9,7 @@ Target video format:
 - Aspect ratio: 9:16
 - Container: MP4
 - Resolution: 1080x1920
-- Duration: 16-18 seconds, optimized for 17.5 seconds
+- Duration: 14-17 seconds, optimized for 15-16 seconds
 - Language: German
 - Media: AI images without text, German voice-over, backend-rendered text overlays
 - Motion: Ken Burns zoom/pan effect
@@ -37,7 +37,6 @@ OpenAI must not change:
 OpenAI may only:
 
 - reformat the short script
-- create a short hook
 - create image prompts
 - generate German voice-over
 - prepare title, caption, and description
@@ -63,7 +62,7 @@ The service must:
 2. Load one quiz from Quiz Bank API.
 3. Validate the quiz.
 4. Create a short German script.
-5. Generate 6 text-free images, one per production segment.
+5. Generate 3 text-free images, one per production frame.
 6. Generate German voice-over.
 7. Create a render plan.
 8. Assemble MP4 with FFmpeg.
@@ -230,54 +229,41 @@ manual_review_required
 
 ## 9. Canonical Production Video Structure
 
-Production target: 6 fixed segments, 16-18 seconds total. Recommended default: 17.5 seconds.
+Production target: 3 fixed frames, 14-17 seconds total. Recommended default: 15.5 seconds.
 
 Production order is fixed:
 
 ```text
-hook -> question -> options -> pause/countdown -> answer -> cta
+question -> options -> answer
 ```
 
 Recommended default timing:
 
 ```text
-0.0-1.5 sec
-Hook
-
-1.5-4.0 sec
+0.0-5.0 sec
 Question
 
-4.0-9.0 sec
+5.0-10.0 sec
 Options:
 A ...
 B ...
 C ...
 
-9.0-12.0 sec
-Countdown / thinking tension:
-3
-2
-1
-
-12.0-15.5 sec
+10.0-15.5 sec
 Answer reveal + short explanation:
 Richtig: A ...
 ...
-
-15.5-17.5 sec
-CTA:
-Mehr Deutsch-Quiz im Telegram-Kanal
 ```
 
 Every production video must include:
 
-- hook;
 - exact Quiz Bank question;
 - exact Quiz Bank answer options;
-- visible countdown / thinking tension;
 - answer reveal with exact correct answer;
-- short explanation sourced from Quiz Bank explanation;
-- final CTA visible for at least 2 seconds.
+- short explanation excerpt sourced from Quiz Bank explanation.
+
+Production video must not include a hook, countdown, or CTA. Telegram/channel
+promotion belongs in the caption, not inside the video.
 
 Available production templates:
 
@@ -292,13 +278,12 @@ Available production templates:
 Every video must use a consistent structure:
 
 - vertical 1080x1920 frame;
-- 6 AI images without text;
+- 3 AI images without text;
 - smooth zoom and pan;
 - large readable backend text overlays;
-- separate overlay layouts for hook, question, options, countdown, answer, and CTA;
+- separate overlay layouts for question, options, and answer;
 - structured A/B/C option rows;
 - visible answer reveal emphasis;
-- readable final CTA;
 - no visual chaos;
 - no tiny text.
 
@@ -317,14 +302,8 @@ OpenAI returns strict JSON:
 
 ```json
 {
-  "hook": "Kannst du das lösen?",
   "voiceover": "...",
   "frames": [
-    {
-      "type": "hook",
-      "text": "90% machen hier einen Fehler",
-      "image_prompt": "..."
-    },
     {
       "type": "question",
       "text": "...",
@@ -336,18 +315,8 @@ OpenAI returns strict JSON:
       "image_prompt": "..."
     },
     {
-      "type": "pause",
-      "text": "3\n2\n1",
-      "image_prompt": "..."
-    },
-    {
       "type": "answer",
       "text": "Richtig: A ...",
-      "image_prompt": "..."
-    },
-    {
-      "type": "cta",
-      "text": "Mehr Deutsch-Quiz im Telegram-Kanal",
       "image_prompt": "..."
     }
   ],
@@ -358,9 +327,8 @@ OpenAI returns strict JSON:
 ```
 
 The backend must validate returned JSON before saving or rendering. Production scripts must
-contain exactly six frames in the canonical order. Backend rendering remains the source of
-truth for visible question, options, correct answer, explanation excerpt, countdown, hook
-variant, and CTA variant.
+contain exactly three frames in the canonical order. Backend rendering remains the source of
+truth for visible question, options, correct answer, and explanation excerpt.
 
 ## 12. Image Generation Rule
 
@@ -393,9 +361,7 @@ FFmpeg rendering must:
 - add fade transitions;
 - overlay exact text;
 - overlay voice-over;
-- render countdown;
 - render answer reveal with explanation;
-- render final CTA;
 - align duration;
 - store creative metadata;
 - export MP4;
@@ -408,17 +374,15 @@ The video must not be published if:
 - video file is missing;
 - file is not MP4;
 - aspect ratio is not 9:16;
-- duration is outside 16-18 seconds;
+- duration is outside 14-17 seconds;
 - audio is missing;
 - text overlay is missing;
-- hook is missing;
-- CTA is missing;
-- frame order is not `hook -> question -> options -> pause -> answer -> cta`;
-- countdown is missing;
+- frame order is not `question -> options -> answer`;
 - answer reveal starts outside the allowed timing;
 - answer reveal is visible before the answer segment;
 - answer explanation is missing;
-- CTA duration is under 2 seconds;
+- image count is not 3;
+- question/options frames leak the answer reveal;
 - text overlay overflow risk is not controlled;
 - correct answer does not match Quiz Bank;
 - Telegram caption is missing;
@@ -511,10 +475,10 @@ The first complete production result:
 
 ```text
 one command or one scheduled job
-creates one finished 16-18 second MP4
+creates one finished 14-17 second MP4
 from one quiz
 in German
-with images
+with 3 text-free AI images
 with voice
 with Ken Burns effect
 with exact text

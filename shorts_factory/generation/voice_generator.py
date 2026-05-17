@@ -33,6 +33,7 @@ class OpenAIVoiceGenerator:
             model=self._settings.openai_tts_model,
             voice=self._settings.openai_voice,
             input=script.voiceover,
+            speed=self._settings.openai_voice_speed,
         ) as response:
             response.stream_to_file(path)
         return path

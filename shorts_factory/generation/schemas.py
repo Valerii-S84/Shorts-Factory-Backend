@@ -31,12 +31,9 @@ class FrameType(StrEnum):
 
 
 PRODUCTION_FRAME_SEQUENCE = (
-    FrameType.HOOK,
     FrameType.QUESTION,
     FrameType.OPTIONS,
-    FrameType.PAUSE,
     FrameType.ANSWER,
-    FrameType.CTA,
 )
 
 
@@ -62,14 +59,13 @@ class ScriptFrame(BaseModel):
 
 
 class GeneratedScript(BaseModel):
-    hook: str
     voiceover: str
-    frames: list[ScriptFrame] = Field(min_length=6, max_length=6)
+    frames: list[ScriptFrame] = Field(min_length=3, max_length=3)
     telegram_caption: str
     youtube_title: str
     youtube_description: str
 
-    @field_validator("hook", "voiceover", "telegram_caption", "youtube_title")
+    @field_validator("voiceover", "telegram_caption", "youtube_title")
     @classmethod
     def require_text(cls, value: str) -> str:
         stripped = value.strip()

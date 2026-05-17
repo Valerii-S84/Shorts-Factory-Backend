@@ -9,7 +9,6 @@ from pydantic import BaseModel
 from shorts_factory.generation.schemas import FrameType
 from shorts_factory.quiz_bank.schemas import Quiz
 from shorts_factory.rendering.production_templates import (
-    CTA_MIN_DURATION_SEC,
     PRODUCTION_DURATION_MAX_SEC,
     PRODUCTION_DURATION_MIN_SEC,
     get_template,
@@ -111,19 +110,19 @@ def _validate_static_requirements(video_path: str, quiz: Quiz, render_plan: Rend
         raise QAError("Telegram caption is missing.")
     if not render_plan.youtube_title:
         raise QAError("YouTube title is missing.")
-    _validate_creative_requirements(render_plan)
+    _validate_creative_requirements(render_plan, quiz)
 
 
 def _validate_probe(probe: VideoProbe) -> None:
     if probe.width != 1080 or probe.height != 1920:
         raise QAError("Video must be 1080x1920.")
     if not PRODUCTION_DURATION_MIN_SEC <= probe.duration_sec <= PRODUCTION_DURATION_MAX_SEC:
-        raise QAError("Video duration must be between 16 and 18 seconds.")
+        raise QAError("Video duration must be between 14 and 17 seconds.")
     if not probe.has_audio:
         raise QAError("Video audio stream is missing.")
 
 
-def _validate_creative_requirements(render_plan: RenderPlan) -> None:
+def _validate_creative_requirements(render_plan: RenderPlan, quiz: Quiz) -> None:
     template = _template(render_plan)
     frame_sequence = render_plan.frame_sequence
     try:
@@ -131,22 +130,21 @@ def _validate_creative_requirements(render_plan: RenderPlan) -> None:
     except ValueError as error:
         raise QAError(str(error)) from error
 
-    hook_frame = _frame(render_plan, FrameType.HOOK)
-    pause_frame = _frame(render_plan, FrameType.PAUSE)
+    question_frame = _frame(render_plan, FrameType.QUESTION)
+    options_frame = _frame(render_plan, FrameType.OPTIONS)
     answer_frame = _frame(render_plan, FrameType.ANSWER)
-    cta_frame = _frame(render_plan, FrameType.CTA)
 
     _validate_duration(render_plan)
-    _validate_variants(render_plan, template)
-    _validate_countdown(render_plan, pause_frame)
-    _validate_answer_reveal(render_plan, template.answer_reveal_at_sec, answer_frame)
+    _validate_image_count(render_plan, template.image_count)
+    _validate_disabled_production_segments(render_plan)
+    _validate_metadata(render_plan)
     _validate_answer_not_visible_before_reveal(render_plan)
+    _validate_question_frame(question_frame, quiz)
+    _validate_options_frame(options_frame, quiz)
+    _validate_answer_reveal(render_plan, template.answer_reveal_at_sec, answer_frame)
+    _validate_answer_frame(render_plan, answer_frame)
     _validate_explanation(render_plan, answer_frame)
-    _validate_cta(cta_frame)
     _validate_overflow(render_plan)
-
-    if not hook_frame.text_overlay.text.strip():
-        raise QAError("Hook frame is missing.")
 
 
 def _template(render_plan: RenderPlan):
@@ -165,31 +163,53 @@ def _frame(render_plan: RenderPlan, frame_type: FrameType):
 
 def _validate_duration(render_plan: RenderPlan) -> None:
     if not PRODUCTION_DURATION_MIN_SEC <= render_plan.duration_sec <= PRODUCTION_DURATION_MAX_SEC:
-        raise QAError("Render plan duration must be between 16 and 18 seconds.")
+        raise QAError("Render plan duration must be between 14 and 17 seconds.")
 
 
-def _validate_variants(render_plan: RenderPlan, template) -> None:
-    hook_ids = {variant.variant_id for variant in template.allowed_hook_variants}
-    if render_plan.hook_variant_id not in hook_ids:
-        raise QAError("Hook variant is not allowed for the production template.")
-    if render_plan.cta_variant_id not in template.allowed_cta_variant_ids:
-        raise QAError("CTA variant is not allowed for the production template.")
+def _validate_image_count(render_plan: RenderPlan, expected_image_count: int) -> None:
+    if (
+        len(render_plan.frames) != expected_image_count
+        or render_plan.image_count != expected_image_count
+    ):
+        raise QAError("Production render plan must use exactly 3 images.")
+
+
+def _validate_disabled_production_segments(render_plan: RenderPlan) -> None:
+    if render_plan.has_countdown:
+        raise QAError("Countdown must be disabled for the production 3-frame flow.")
+    if render_plan.has_cta:
+        raise QAError("CTA must be disabled for the production 3-frame flow.")
+
+
+def _validate_metadata(render_plan: RenderPlan) -> None:
     metadata = render_plan.creative_metadata
     if metadata.template_id != render_plan.template_id:
         raise QAError("Creative metadata template_id does not match render plan.")
-    if metadata.hook_variant_id != render_plan.hook_variant_id:
-        raise QAError("Creative metadata hook_variant_id does not match render plan.")
-    if metadata.cta_variant_id != render_plan.cta_variant_id:
-        raise QAError("Creative metadata cta_variant_id does not match render plan.")
+    if metadata.frame_sequence != [frame.type.value for frame in render_plan.frames]:
+        raise QAError("Creative metadata frame_sequence does not match render plan.")
+    if abs(metadata.answer_reveal_at_sec - render_plan.answer_reveal_at_sec) > 0.01:
+        raise QAError("Creative metadata answer reveal timing is invalid.")
+    if metadata.has_countdown != render_plan.has_countdown:
+        raise QAError("Creative metadata countdown flag does not match render plan.")
+    if metadata.has_cta != render_plan.has_cta:
+        raise QAError("Creative metadata CTA flag does not match render plan.")
+    if metadata.image_count != render_plan.image_count:
+        raise QAError("Creative metadata image_count does not match render plan.")
 
 
-def _validate_countdown(render_plan: RenderPlan, pause_frame) -> None:
-    if not render_plan.has_countdown:
-        raise QAError("Countdown is missing.")
-    if pause_frame.text_overlay.kind != OverlayKind.COUNTDOWN:
-        raise QAError("Pause frame must use countdown overlay.")
-    if pause_frame.text_overlay.countdown_values != ("3", "2", "1"):
-        raise QAError("Countdown overlay must include 3, 2, 1.")
+def _validate_question_frame(question_frame, quiz: Quiz) -> None:
+    if question_frame.text_overlay.kind != OverlayKind.QUESTION:
+        raise QAError("Question frame must use question overlay.")
+    if question_frame.text_overlay.text != quiz.question:
+        raise QAError("Question frame must contain only the Quiz Bank question.")
+
+
+def _validate_options_frame(options_frame, quiz: Quiz) -> None:
+    if options_frame.text_overlay.kind != OverlayKind.OPTIONS:
+        raise QAError("Options frame must use options overlay.")
+    expected_options = "\n".join(f"{option.label}  {option.text}" for option in quiz.options)
+    if options_frame.text_overlay.text != expected_options:
+        raise QAError("Options frame must contain only the Quiz Bank answer options.")
 
 
 def _validate_answer_reveal(
@@ -206,8 +226,23 @@ def _validate_answer_not_visible_before_reveal(render_plan: RenderPlan) -> None:
     for frame in render_plan.frames:
         if frame.type == FrameType.ANSWER:
             return
-        if render_plan.answer_reveal_text in frame.text_overlay.text:
+        if _contains_answer_leakage(frame.text_overlay.text, render_plan):
             raise QAError("Answer reveal is visible before the answer segment.")
+
+
+def _contains_answer_leakage(text: str, render_plan: RenderPlan) -> bool:
+    if render_plan.answer_reveal_text in text:
+        return True
+    if render_plan.explanation_text and render_plan.explanation_text in text:
+        return True
+    return False
+
+
+def _validate_answer_frame(render_plan: RenderPlan, answer_frame) -> None:
+    if answer_frame.text_overlay.kind != OverlayKind.ANSWER:
+        raise QAError("Answer frame must use answer overlay.")
+    if render_plan.answer_reveal_text not in answer_frame.text_overlay.text:
+        raise QAError("Answer frame must include the exact correct answer.")
 
 
 def _validate_explanation(render_plan: RenderPlan, answer_frame) -> None:
@@ -215,13 +250,6 @@ def _validate_explanation(render_plan: RenderPlan, answer_frame) -> None:
         raise QAError("Answer explanation is missing.")
     if render_plan.explanation_text not in answer_frame.text_overlay.text:
         raise QAError("Answer frame must include the explanation.")
-
-
-def _validate_cta(cta_frame) -> None:
-    if not cta_frame.text_overlay.text.strip():
-        raise QAError("CTA frame is missing.")
-    if cta_frame.duration_sec < CTA_MIN_DURATION_SEC:
-        raise QAError("CTA duration must be at least 2 seconds.")
 
 
 def _validate_overflow(render_plan: RenderPlan) -> None:

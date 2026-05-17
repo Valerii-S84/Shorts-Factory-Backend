@@ -23,15 +23,15 @@ from shorts_factory.storage.local_storage import LocalStorage
 
 class SmokeScriptGenerator:
     def generate(self, quiz: Quiz) -> GeneratedScript:
+        options = ", ".join(f"{option.label}: {option.text}" for option in quiz.options)
         return GeneratedScript(
-            hook="Kannst du das lösen?",
-            voiceover=f"{quiz.question} Richtig ist {quiz.correct_option_label}.",
+            voiceover=(
+                f"{quiz.question} "
+                f"Optionen: {options}. "
+                f"Richtig ist {quiz.correct_option_label}: {quiz.correct_option.text}. "
+                f"{quiz.explanation}"
+            ),
             frames=[
-                ScriptFrame(
-                    type=FrameType.HOOK,
-                    text="Der, die oder das?",
-                    image_prompt="Student at a bright desk",
-                ),
                 ScriptFrame(
                     type=FrameType.QUESTION,
                     text=quiz.question,
@@ -43,19 +43,9 @@ class SmokeScriptGenerator:
                     image_prompt="Learning cards on a table",
                 ),
                 ScriptFrame(
-                    type=FrameType.PAUSE,
-                    text="3\n2\n1",
-                    image_prompt="Student thinking before choosing",
-                ),
-                ScriptFrame(
                     type=FrameType.ANSWER,
                     text=f"Richtig ist: {quiz.correct_option_label} {quiz.correct_option.text}",
                     image_prompt="Happy learner in a classroom",
-                ),
-                ScriptFrame(
-                    type=FrameType.CTA,
-                    text="Mehr Deutsch-Quiz im Telegram-Kanal",
-                    image_prompt="Friendly learning desk with a smartphone nearby",
                 ),
             ],
             telegram_caption=f"Deutsch-Quiz: {quiz.topic}",
@@ -116,8 +106,17 @@ class SmokeQAService:
         )
 
 
+class FailingQAService:
+    def validate(self, *, video_path: str, quiz: Quiz, render_plan: RenderPlan) -> QAResult:
+        raise RuntimeError("qa failed: answer leakage")
+
+
 class SmokeTelegramPublisher:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, str]] = []
+
     def publish_video(self, *, video_path: str, caption: str) -> PublishResult:
+        self.calls.append({"video_path": video_path, "caption": caption})
         return PublishResult(external_id="telegram-1", chat_id="-100", url="https://t.me/c/1")
 
 
@@ -149,6 +148,7 @@ def test_quiz_bank_item_to_render_and_publish_reports_delivery_outcome(tmp_path:
     try:
         repository = VideoJobRepository(session)
         job = repository.create(target_platforms=[PublishPlatform.TELEGRAM.value])
+        publisher = SmokeTelegramPublisher()
         worker = VideoJobWorker(
             settings=settings,
             repository=repository,
@@ -161,7 +161,7 @@ def test_quiz_bank_item_to_render_and_publish_reports_delivery_outcome(tmp_path:
             voice_generator=SmokeVoiceGenerator(tmp_path),
             renderer=SmokeRenderer(),
             qa_service=SmokeQAService(),
-            publish_service=PublishService(repository, SmokeTelegramPublisher()),
+            publish_service=PublishService(repository, publisher),
             storage=LocalStorage(),
         )
 
@@ -174,6 +174,8 @@ def test_quiz_bank_item_to_render_and_publish_reports_delivery_outcome(tmp_path:
         assert completed_job.video_path is not None
         assert completed_job.render_plan_json["quiz_id"] == "item-1"
         assert completed_job.render_plan_json["creative_metadata"]["template_id"] == "grammar_trap"
+        assert len(publisher.calls) == 1
+        assert publisher.calls[0]["video_path"] == completed_job.video_path
         assert completed_job.publish_logs[0].metadata_json["template_id"] == "grammar_trap"
         assert completed_job.publish_logs[0].metadata_json["platform"] == "telegram"
         assert completed_job.publish_logs[0].metadata_json["publish_url"] == "https://t.me/c/1"
@@ -211,6 +213,7 @@ def test_worker_marks_recoverable_render_failure_retry_pending(tmp_path: Path) -
     try:
         repository = VideoJobRepository(session)
         job = repository.create(target_platforms=[PublishPlatform.TELEGRAM.value])
+        publisher = SmokeTelegramPublisher()
         worker = VideoJobWorker(
             settings=settings,
             repository=repository,
@@ -223,7 +226,7 @@ def test_worker_marks_recoverable_render_failure_retry_pending(tmp_path: Path) -
             voice_generator=SmokeVoiceGenerator(tmp_path),
             renderer=FailingRenderer(),
             qa_service=SmokeQAService(),
-            publish_service=PublishService(repository, SmokeTelegramPublisher()),
+            publish_service=PublishService(repository, publisher),
             storage=LocalStorage(),
         )
 
@@ -234,6 +237,65 @@ def test_worker_marks_recoverable_render_failure_retry_pending(tmp_path: Path) -
         assert completed_job.status == JobStatus.RETRY_PENDING.value
         assert completed_job.error_message == "render failed while building mp4"
         assert completed_job.finished_at is None
+        assert publisher.calls == []
+        assert outcomes == [{"status": "failed"}]
+    finally:
+        session.close()
+        engine.dispose()
+
+
+def test_worker_does_not_publish_when_qa_fails(tmp_path: Path) -> None:
+    outcomes: list[dict[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/v1/quiz-items/next":
+            return httpx.Response(
+                200,
+                json={"delivery_id": "delivery-1", "quiz_item": _quiz_bank_item_payload()},
+            )
+        if request.url.path == "/v1/deliveries/delivery-1/outcome":
+            outcomes.append(json.loads(request.content))
+            return httpx.Response(200, json={"ok": True})
+        return httpx.Response(404)
+
+    settings = Settings(
+        environment="test",
+        database_url=f"sqlite+pysqlite:///{tmp_path / 'smoke.db'}",
+        media_root=tmp_path / "media",
+        quiz_bank_base_url="https://api.valerchik.de",
+        quiz_bank_edge_api_key="edge-token",
+        quiz_bank_api_key="bank-token",
+    )
+    engine = create_database_engine(settings.effective_database_url)
+    Base.metadata.create_all(engine)
+    session = create_session_factory(engine)()
+    try:
+        repository = VideoJobRepository(session)
+        job = repository.create(target_platforms=[PublishPlatform.TELEGRAM.value])
+        publisher = SmokeTelegramPublisher()
+        worker = VideoJobWorker(
+            settings=settings,
+            repository=repository,
+            quiz_bank_client=QuizBankClient(
+                settings,
+                http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+            ),
+            script_generator=SmokeScriptGenerator(),
+            image_generator=SmokeImageGenerator(tmp_path),
+            voice_generator=SmokeVoiceGenerator(tmp_path),
+            renderer=SmokeRenderer(),
+            qa_service=FailingQAService(),
+            publish_service=PublishService(repository, publisher),
+            storage=LocalStorage(),
+        )
+
+        with pytest.raises(RuntimeError, match="qa failed"):
+            worker.run(job.id)
+
+        completed_job = repository.get_with_children(job.id)
+        assert completed_job.status == JobStatus.FAILED.value
+        assert completed_job.publish_logs == []
+        assert publisher.calls == []
         assert outcomes == [{"status": "failed"}]
     finally:
         session.close()

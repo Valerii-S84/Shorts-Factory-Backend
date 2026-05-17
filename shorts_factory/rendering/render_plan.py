@@ -43,12 +43,12 @@ class CreativeMetadata(BaseModel):
     level: str | None
     topic: str | None
     template_id: str
-    hook_variant_id: str
-    cta_variant_id: str
     duration_sec: float
     frame_sequence: list[str]
     answer_reveal_at_sec: float
     has_countdown: bool
+    has_cta: bool
+    image_count: int
     has_voiceover: bool
     has_music: bool
     has_sfx: bool
@@ -64,15 +64,15 @@ class RenderPlan(BaseModel):
     width: int = 1080
     height: int = 1920
     fps: int = 30
-    duration_sec: float = 18.0
+    duration_sec: float = 15.5
     audio_path: str
     output_path: str
-    frames: list[RenderFrame] = Field(min_length=1)
+    frames: list[RenderFrame] = Field(min_length=3, max_length=3)
     template_id: str
-    hook_variant_id: str
-    cta_variant_id: str
     answer_reveal_at_sec: float
     has_countdown: bool
+    has_cta: bool
+    image_count: int
     has_voiceover: bool = True
     has_music: bool = False
     has_sfx: bool = False
@@ -102,8 +102,8 @@ def build_render_plan(
     image_paths: list[Path],
     audio_path: Path,
 ) -> RenderPlan:
-    if len(image_paths) < len(script.frames):
-        raise ValueError("Render plan requires one image per script frame.")
+    if len(image_paths) != len(script.frames):
+        raise ValueError("Render plan requires exactly one image per script frame.")
 
     frame_types = tuple(frame.type for frame in script.frames)
     validate_production_frame_order(frame_types)
@@ -139,12 +139,12 @@ def build_render_plan(
         level=quiz.level,
         topic=quiz.topic,
         template_id=selection.template.template_id,
-        hook_variant_id=selection.hook_variant.variant_id,
-        cta_variant_id=selection.cta_variant.variant_id,
         duration_sec=duration,
         frame_sequence=[frame.type.value for frame in frames],
         answer_reveal_at_sec=selection.template.answer_reveal_at_sec,
-        has_countdown=selection.template.countdown_required,
+        has_countdown=selection.template.has_countdown,
+        has_cta=selection.template.has_cta,
+        image_count=selection.template.image_count,
         has_voiceover=True,
         has_music=False,
         has_sfx=False,
@@ -159,10 +159,10 @@ def build_render_plan(
         output_path=str(output_path),
         frames=frames,
         template_id=selection.template.template_id,
-        hook_variant_id=selection.hook_variant.variant_id,
-        cta_variant_id=selection.cta_variant.variant_id,
         answer_reveal_at_sec=selection.template.answer_reveal_at_sec,
-        has_countdown=selection.template.countdown_required,
+        has_countdown=selection.template.has_countdown,
+        has_cta=selection.template.has_cta,
+        image_count=selection.template.image_count,
         has_voiceover=True,
         has_music=False,
         has_sfx=False,
@@ -254,7 +254,7 @@ def _overlay_text(
     explanation_text: str,
 ) -> str:
     if frame_type == FrameType.HOOK:
-        return selection.hook_variant.text
+        return generated_text
     if frame_type == FrameType.QUESTION:
         return quiz.question
     if frame_type == FrameType.OPTIONS:
@@ -265,7 +265,7 @@ def _overlay_text(
         answer_line = f"Richtig: {quiz.correct_option_label} {quiz.correct_option.text}"
         return f"{answer_line}\n{explanation_text}"
     if frame_type == FrameType.CTA:
-        return selection.cta_variant.text
+        return generated_text
     return generated_text
 
 

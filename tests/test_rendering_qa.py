@@ -60,18 +60,34 @@ def a2_long_explanation_quiz() -> Quiz:
     )
 
 
+def a2_four_option_quiz() -> Quiz:
+    return Quiz.model_validate(
+        {
+            "id": "quiz-a2-four-options",
+            "question": ("Warum muss man einen Termin manchmal auf einen anderen Tag verschieben?"),
+            "options": [
+                {"label": "A", "text": "weil man frueher fertig ist"},
+                {"label": "B", "text": "weil man puenktlich ankommt"},
+                {"label": "C", "text": "weil der Zeitpunkt nicht passt"},
+                {"label": "D", "text": "weil die Rechnung bezahlt ist"},
+            ],
+            "correct_answer": "C",
+            "explanation": "Man verschiebt einen Termin, wenn der geplante Zeitpunkt nicht passt.",
+            "level": "A2",
+            "topic": "Alltag",
+            "status": "approved",
+        }
+    )
+
+
 def script() -> GeneratedScript:
     return GeneratedScript.model_validate(
         {
-            "hook": "Kannst du das lösen?",
-            "voiceover": "Was bedeutet 'Haus'? Richtig ist A, house.",
+            "voiceover": "Was bedeutet 'Haus'? Optionen: A house, B car. Richtig ist A, house.",
             "frames": [
-                {"type": "hook", "text": "Hook", "image_prompt": "Curious student"},
                 {"type": "question", "text": "Was bedeutet 'Haus'?", "image_prompt": "Classroom"},
                 {"type": "options", "text": "A house\nB car", "image_prompt": "Quiz lesson"},
-                {"type": "pause", "text": "3\n2\n1", "image_prompt": "Thinking student"},
                 {"type": "answer", "text": "Richtig ist: A house", "image_prompt": "Student"},
-                {"type": "cta", "text": "Folge uns!", "image_prompt": "Learning atmosphere"},
             ],
             "telegram_caption": "Deutsch Quiz",
             "youtube_title": "Deutsch Quiz",
@@ -82,7 +98,7 @@ def script() -> GeneratedScript:
 
 def test_render_plan_keeps_quiz_answer_and_text_overlays(tmp_path: Path) -> None:
     settings = Settings(environment="test", media_root=tmp_path)
-    image_paths = [tmp_path / f"{index}.png" for index in range(1, 7)]
+    image_paths = [tmp_path / f"{index}.png" for index in range(1, 4)]
     audio_path = tmp_path / "voice.mp3"
 
     plan = build_render_plan(
@@ -97,12 +113,38 @@ def test_render_plan_keeps_quiz_answer_and_text_overlays(tmp_path: Path) -> None
     assert plan.correct_option_label == "A"
     assert plan.correct_answer_text == "house"
     assert plan.has_text_overlays
-    assert plan.duration_sec == 17.5
-    assert plan.frames[2].text_overlay.text == "A  house\nB  car"
-    assert "Haus bedeutet house." in plan.frames[4].text_overlay.text
-    assert plan.answer_reveal_at_sec == 12.0
+    assert plan.duration_sec == 15.5
+    assert plan.image_count == 3
+    assert plan.frames[1].text_overlay.text == "A  house\nB  car"
+    assert "Haus bedeutet house." in plan.frames[2].text_overlay.text
+    assert plan.answer_reveal_at_sec == 10.0
+    assert not plan.has_countdown
+    assert not plan.has_cta
     assert plan.creative_metadata.template_id == "speed"
     assert plan.output_path.endswith("videos/1/short.mp4")
+
+
+def test_render_plan_keeps_video_understandable_without_audio(tmp_path: Path) -> None:
+    source_quiz = a2_four_option_quiz()
+    plan = build_render_plan(
+        settings=Settings(environment="test", media_root=tmp_path),
+        job_id=4,
+        quiz=source_quiz,
+        script=script(),
+        image_paths=[tmp_path / f"{index}.png" for index in range(1, 4)],
+        audio_path=tmp_path / "voice.mp3",
+    )
+
+    question_frame, options_frame, answer_frame = plan.frames
+
+    assert question_frame.text_overlay.text == source_quiz.question
+    assert "A  weil man frueher fertig ist" in options_frame.text_overlay.text
+    assert "D  weil die Rechnung bezahlt ist" in options_frame.text_overlay.text
+    assert plan.answer_reveal_text == "Richtig: C weil der Zeitpunkt nicht passt"
+    assert plan.answer_reveal_text in answer_frame.text_overlay.text
+    assert not question_frame.text_overlay.has_overflow_risk
+    assert not options_frame.text_overlay.has_overflow_risk
+    assert not answer_frame.text_overlay.has_overflow_risk
 
 
 def test_render_plan_trims_long_answer_explanation_to_fit_overlay(tmp_path: Path) -> None:
@@ -114,7 +156,7 @@ def test_render_plan_trims_long_answer_explanation_to_fit_overlay(tmp_path: Path
         job_id=3,
         quiz=source_quiz,
         script=script(),
-        image_paths=[tmp_path / f"{index}.png" for index in range(1, 7)],
+        image_paths=[tmp_path / f"{index}.png" for index in range(1, 4)],
         audio_path=tmp_path / "voice.mp3",
     )
 
@@ -143,11 +185,11 @@ def test_qa_accepts_job_three_a2_long_answer_fixture_after_display_trim(tmp_path
         job_id=3,
         quiz=source_quiz,
         script=script(),
-        image_paths=[tmp_path / f"{index}.png" for index in range(1, 7)],
+        image_paths=[tmp_path / f"{index}.png" for index in range(1, 4)],
         audio_path=tmp_path / "voice.mp3",
     )
     qa = VideoQAService(
-        StaticProbe(VideoProbe(path="", width=1080, height=1920, duration_sec=18, has_audio=True))
+        StaticProbe(VideoProbe(path="", width=1080, height=1920, duration_sec=15.5, has_audio=True))
     )
 
     result = qa.validate(video_path=str(video_path), quiz=source_quiz, render_plan=plan)
@@ -162,14 +204,7 @@ def test_ffmpeg_command_pads_audio_to_render_duration(tmp_path: Path) -> None:
         job_id=1,
         quiz=quiz(),
         script=script(),
-        image_paths=[
-            tmp_path / "1.png",
-            tmp_path / "2.png",
-            tmp_path / "3.png",
-            tmp_path / "4.png",
-            tmp_path / "5.png",
-            tmp_path / "6.png",
-        ],
+        image_paths=[tmp_path / "1.png", tmp_path / "2.png", tmp_path / "3.png"],
         audio_path=tmp_path / "voice.mp3",
     )
 
@@ -182,9 +217,8 @@ def test_ffmpeg_command_pads_audio_to_render_duration(tmp_path: Path) -> None:
     assert "[aout]" in command
     assert "textfile='" in filter_graph
     assert "\\n" not in filter_graph
-    assert "apad=whole_dur=17.5[aout]" in filter_graph
-    assert "between(t\\,0.0\\,1.0)" not in filter_graph
-    assert "between(t,0.0,1.0)" in filter_graph
+    assert "apad=whole_dur=15.5[aout]" in filter_graph
+    assert "between(t,0.0,1.0)" not in filter_graph
 
 
 def test_parse_ffprobe_output_detects_audio_and_dimensions() -> None:
@@ -212,18 +246,11 @@ def test_qa_rejects_missing_video_file(tmp_path: Path) -> None:
         job_id=1,
         quiz=quiz(),
         script=script(),
-        image_paths=[
-            tmp_path / "1.png",
-            tmp_path / "2.png",
-            tmp_path / "3.png",
-            tmp_path / "4.png",
-            tmp_path / "5.png",
-            tmp_path / "6.png",
-        ],
+        image_paths=[tmp_path / "1.png", tmp_path / "2.png", tmp_path / "3.png"],
         audio_path=tmp_path / "voice.mp3",
     )
     qa = VideoQAService(
-        StaticProbe(VideoProbe(path="", width=1080, height=1920, duration_sec=18, has_audio=True))
+        StaticProbe(VideoProbe(path="", width=1080, height=1920, duration_sec=15.5, has_audio=True))
     )
 
     with pytest.raises(QAError):

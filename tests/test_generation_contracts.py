@@ -33,14 +33,8 @@ def quiz() -> Quiz:
 def valid_script() -> GeneratedScript:
     return GeneratedScript.model_validate(
         {
-            "hook": "Kannst du das lösen?",
-            "voiceover": "Was bedeutet 'Haus'? Richtig ist A, house.",
+            "voiceover": "Was bedeutet 'Haus'? Optionen: A house, B car. Richtig ist A, house.",
             "frames": [
-                {
-                    "type": "hook",
-                    "text": "Kannst du das lösen?",
-                    "image_prompt": "German classroom with a curious student",
-                },
                 {
                     "type": "question",
                     "text": "Was bedeutet 'Haus'?",
@@ -52,19 +46,9 @@ def valid_script() -> GeneratedScript:
                     "image_prompt": "Learning cards on a classroom table",
                 },
                 {
-                    "type": "pause",
-                    "text": "3\n2\n1",
-                    "image_prompt": "Student thinking before choosing",
-                },
-                {
                     "type": "answer",
                     "text": "Richtig ist: A house",
                     "image_prompt": "Happy student learning vocabulary",
-                },
-                {
-                    "type": "cta",
-                    "text": "Mehr Deutsch-Quiz im Telegram-Kanal",
-                    "image_prompt": "Friendly study desk with a smartphone",
                 },
             ],
             "telegram_caption": "Deutsch Quiz",
@@ -76,6 +60,14 @@ def valid_script() -> GeneratedScript:
 
 def test_generated_script_preserves_quiz_question_and_answer() -> None:
     validate_script_preserves_quiz_facts(valid_script(), quiz())
+
+
+def test_generated_script_uses_three_frames_without_legacy_required_segments() -> None:
+    script = valid_script()
+
+    assert [frame.type.value for frame in script.frames] == ["question", "options", "answer"]
+    assert not hasattr(script, "hook")
+    assert {frame.type.value for frame in script.frames}.isdisjoint({"hook", "pause", "cta"})
 
 
 def test_generated_script_rejects_image_prompt_text_instruction() -> None:
@@ -130,15 +122,21 @@ def test_generated_script_allows_non_forbidden_text_substrings(
     assert script.frames[0].image_prompt == allowed_prompt
 
 
-def test_generated_script_rejects_old_three_frame_production_script() -> None:
+def test_generated_script_rejects_old_six_frame_production_script() -> None:
     payload = valid_script().model_dump(mode="json")
-    payload["frames"] = [payload["frames"][1], payload["frames"][2], payload["frames"][4]]
+    payload["frames"] = [
+        {"type": "hook", "text": "Hook", "image_prompt": "Curious student"},
+        *payload["frames"][:2],
+        {"type": "pause", "text": "3\n2\n1", "image_prompt": "Thinking student"},
+        payload["frames"][2],
+        {"type": "cta", "text": "Follow", "image_prompt": "Study desk"},
+    ]
 
     with pytest.raises(ValidationError):
         GeneratedScript.model_validate(payload)
 
 
-def test_generated_script_rejects_more_than_six_frames() -> None:
+def test_generated_script_rejects_more_than_three_frames() -> None:
     payload = valid_script().model_dump(mode="json")
     payload["frames"].append(payload["frames"][0])
 
@@ -146,11 +144,35 @@ def test_generated_script_rejects_more_than_six_frames() -> None:
         GeneratedScript.model_validate(payload)
 
 
-def test_generated_script_rejects_invalid_production_frame_order() -> None:
+@pytest.mark.parametrize(
+    "missing_index",
+    [
+        pytest.param(0, id="missing-question"),
+        pytest.param(1, id="missing-options"),
+        pytest.param(2, id="missing-answer"),
+    ],
+)
+def test_generated_script_rejects_missing_required_production_frame(missing_index: int) -> None:
     payload = valid_script().model_dump(mode="json")
-    payload["frames"][0], payload["frames"][1] = payload["frames"][1], payload["frames"][0]
+    payload["frames"].pop(missing_index)
 
-    with pytest.raises(ValidationError, match="hook -> question -> options"):
+    with pytest.raises(ValidationError):
+        GeneratedScript.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    "frame_order",
+    [
+        pytest.param([2, 0, 1], id="answer-question-options"),
+        pytest.param([0, 2, 1], id="question-answer-options"),
+        pytest.param([1, 0, 2], id="options-question-answer"),
+    ],
+)
+def test_generated_script_rejects_invalid_production_frame_order(frame_order: list[int]) -> None:
+    payload = valid_script().model_dump(mode="json")
+    payload["frames"] = [payload["frames"][index] for index in frame_order]
+
+    with pytest.raises(ValidationError, match="question -> options -> answer"):
         GeneratedScript.model_validate(payload)
 
 
@@ -180,7 +202,14 @@ def test_script_system_prompt_defines_image_prompt_as_scene_brief() -> None:
 
     assert "frame.image_prompt is only" in prompt
     assert "scene brief, not a full style prompt" in prompt
-    assert "exactly six frames" in prompt
+    assert "exactly three frames" in prompt
+    assert "question, options, answer" in prompt
+    assert "Do not create a hook" in prompt
+    assert "speech speed 0.8" in prompt
+    assert "read the question" in prompt
+    assert "read the options" in prompt
+    assert "reveal the correct answer" in prompt
+    assert "facts are immutable" in prompt
     assert "question text" in prompt
     assert "answer options" in prompt
     assert "logos" in prompt
@@ -189,7 +218,7 @@ def test_script_system_prompt_defines_image_prompt_as_scene_brief() -> None:
 
 def test_generated_script_rejects_changed_question() -> None:
     script = valid_script()
-    script.frames[1].text = "Was bedeutet 'Auto'?"
+    script.frames[0].text = "Was bedeutet 'Auto'?"
 
     with pytest.raises(ScriptGenerationError):
         validate_script_preserves_quiz_facts(script, quiz())

@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import pytest
 
 from shorts_factory.generation.image_generator import ImageGenerationError, OpenAIImageGenerator
+from shorts_factory.generation.image_prompt_builder import IMAGE_NEGATIVE_RULES
 from shorts_factory.generation.image_style_contract import PRODUCTION_IMAGE_STYLE_CONTRACT
 from shorts_factory.generation.schemas import GeneratedScript
 from shorts_factory.generation.voice_generator import OpenAIVoiceGenerator, VoiceGenerationError
@@ -17,10 +18,10 @@ def test_openai_image_generator_writes_decoded_images(tmp_path: Path) -> None:
 
     paths = generator.generate(job_id=7, script=valid_script())
 
-    assert len(paths) == 6
+    assert len(paths) == 3
     assert all(path.read_bytes() == b"image" for path in paths)
-    assert client.calls[0]["prompt"] != "German classroom with a curious student"
-    assert "German classroom with a curious student" in client.calls[0]["prompt"]
+    assert client.calls[0]["prompt"] != "Student thinking in a German class"
+    assert "Student thinking in a German class" in client.calls[0]["prompt"]
     assert PRODUCTION_IMAGE_STYLE_CONTRACT in client.calls[0]["prompt"]
     assert client.calls[0]["model"] == "image-test"
     assert client.calls[0]["size"] == "1024x1536"
@@ -38,11 +39,13 @@ def test_openai_image_generator_builds_prompt_for_each_frame(tmp_path: Path) -> 
     generator.generate(job_id=7, script=script)
 
     assert len(client.calls) == len(script.frames)
+    assert len(client.calls) == 3
     for frame, call in zip(script.frames, client.calls, strict=True):
         assert call["prompt"] != frame.image_prompt
         assert frame.image_prompt in call["prompt"]
         assert PRODUCTION_IMAGE_STYLE_CONTRACT in call["prompt"]
-        assert "no visible text" in call["prompt"]
+        for negative_rule in IMAGE_NEGATIVE_RULES:
+            assert negative_rule in call["prompt"]
 
 
 def test_openai_image_generator_uses_custom_image_settings(tmp_path: Path) -> None:
@@ -92,6 +95,7 @@ def test_openai_voice_generator_streams_audio_file(tmp_path: Path) -> None:
     assert path.read_bytes() == b"voice"
     assert client.streaming.calls[0]["model"] == "tts-test"
     assert client.streaming.calls[0]["input"] == valid_script().voiceover
+    assert client.streaming.calls[0]["speed"] == 0.8
 
 
 def test_openai_voice_generator_requires_api_key() -> None:
@@ -149,14 +153,8 @@ def _settings(media_root: Path) -> Settings:
 def valid_script() -> GeneratedScript:
     return GeneratedScript.model_validate(
         {
-            "hook": "Kannst du das lösen?",
-            "voiceover": "Was bedeutet 'Haus'? Richtig ist A, house.",
+            "voiceover": "Was bedeutet 'Haus'? Optionen: A house, B car. Richtig ist A, house.",
             "frames": [
-                {
-                    "type": "hook",
-                    "text": "Hook",
-                    "image_prompt": "German classroom with a curious student",
-                },
                 {
                     "type": "question",
                     "text": "Was bedeutet 'Haus'?",
@@ -168,19 +166,9 @@ def valid_script() -> GeneratedScript:
                     "image_prompt": "Learning cards on a classroom table",
                 },
                 {
-                    "type": "pause",
-                    "text": "3\n2\n1",
-                    "image_prompt": "Student thinking before choosing",
-                },
-                {
                     "type": "answer",
                     "text": "Richtig ist: A house",
                     "image_prompt": "Happy student learning vocabulary",
-                },
-                {
-                    "type": "cta",
-                    "text": "Mehr Deutsch-Quiz im Telegram-Kanal",
-                    "image_prompt": "Friendly study desk with a smartphone",
                 },
             ],
             "telegram_caption": "Deutsch Quiz",

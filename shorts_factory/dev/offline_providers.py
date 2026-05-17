@@ -9,14 +9,11 @@ from shorts_factory.quiz_bank.schemas import Quiz
 from shorts_factory.settings import Settings
 from shorts_factory.storage.asset_paths import job_asset_path
 
-PLACEHOLDER_AUDIO_SECONDS = 18
+PLACEHOLDER_AUDIO_SECONDS = 16
 PLACEHOLDER_COLORS = (
     "0x1f2937",
     "0x0f766e",
     "0x7c2d12",
-    "0x1d4ed8",
-    "0x4d7c0f",
-    "0x6d28d9",
 )
 
 
@@ -38,7 +35,6 @@ class OfflineQuizBankClient:
 class OfflineScriptGenerator:
     def generate(self, quiz: Quiz) -> GeneratedScript:
         script = GeneratedScript(
-            hook="Der, die oder das?",
             voiceover=_voiceover(quiz),
             frames=_script_frames(quiz),
             telegram_caption=f"Deutsch-Quiz: {quiz.topic} ({quiz.level})",
@@ -101,20 +97,15 @@ def _sample_quiz() -> Quiz:
 def _voiceover(quiz: Quiz) -> str:
     options = ", ".join(f"{option.label}: {option.text}" for option in quiz.options)
     return (
-        f"Der, die oder das? {quiz.question} {options}. Denk kurz nach. "
-        f"Richtig ist {quiz.correct_option_label}: {quiz.correct_option.text}. "
-        f"{quiz.explanation} Mehr Deutsch-Quiz im Telegram-Kanal."
+        f"{quiz.question} "
+        f"Optionen: {options}. "
+        f"Richtig ist {quiz.correct_option_label}: {quiz.correct_option.text}. {quiz.explanation}"
     )
 
 
 def _script_frames(quiz: Quiz) -> list[ScriptFrame]:
     options_text = "\n".join(f"{option.label} {option.text}" for option in quiz.options)
     return [
-        ScriptFrame(
-            type=FrameType.HOOK,
-            text="Der, die oder das?",
-            image_prompt="Bright study room with pencils and a notebook",
-        ),
         ScriptFrame(
             type=FrameType.QUESTION,
             text=quiz.question,
@@ -123,22 +114,12 @@ def _script_frames(quiz: Quiz) -> list[ScriptFrame]:
         ScriptFrame(
             type=FrameType.OPTIONS,
             text=options_text,
-            image_prompt="Three colorful learning cards on a table",
-        ),
-        ScriptFrame(
-            type=FrameType.PAUSE,
-            text="3\n2\n1",
-            image_prompt="Student concentrating before choosing an answer",
+            image_prompt="Colorful pencils and notebooks on a classroom table",
         ),
         ScriptFrame(
             type=FrameType.ANSWER,
             text=f"Richtig: {quiz.correct_option_label} {quiz.correct_option.text}",
             image_prompt="Happy learner beside a small bridge model",
-        ),
-        ScriptFrame(
-            type=FrameType.CTA,
-            text="Mehr Deutsch-Quiz im Telegram-Kanal",
-            image_prompt="Friendly learning desk with a smartphone nearby",
         ),
     ]
 

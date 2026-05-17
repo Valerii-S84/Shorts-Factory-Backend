@@ -75,7 +75,7 @@ def render_plan(tmp_path: Path) -> RenderPlan:
         job_id=1,
         quiz=quiz(),
         script=script(),
-        image_paths=[tmp_path / f"{index}.png" for index in range(1, 7)],
+        image_paths=[tmp_path / f"{index}.png" for index in range(1, 4)],
         audio_path=tmp_path / "voice.mp3",
     )
 
@@ -98,15 +98,11 @@ def quiz() -> Quiz:
 def script() -> GeneratedScript:
     return GeneratedScript.model_validate(
         {
-            "hook": "Kannst du das lösen?",
-            "voiceover": "Was bedeutet 'Haus'? Richtig ist A, house.",
+            "voiceover": "Was bedeutet 'Haus'? Optionen: A house, B car. Richtig ist A, house.",
             "frames": [
-                {"type": "hook", "text": "Hook", "image_prompt": "Curious student"},
                 {"type": "question", "text": "Was bedeutet 'Haus'?", "image_prompt": "Classroom"},
                 {"type": "options", "text": "A house\nB car", "image_prompt": "Quiz lesson"},
-                {"type": "pause", "text": "3\n2\n1", "image_prompt": "Thinking student"},
                 {"type": "answer", "text": "Richtig ist: A house", "image_prompt": "Student"},
-                {"type": "cta", "text": "Folge uns!", "image_prompt": "Learning atmosphere"},
             ],
             "telegram_caption": "Deutsch Quiz",
             "youtube_title": "Deutsch Quiz",

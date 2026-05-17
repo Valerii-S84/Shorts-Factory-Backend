@@ -70,6 +70,32 @@ def test_countdown_overlay_renders_timed_drawtext_filters() -> None:
     assert "text='1'" in filters[2]
 
 
+def test_long_a2_question_overlay_stays_inside_layout_limits() -> None:
+    overlay = build_text_overlay(
+        OverlayKind.QUESTION,
+        "Warum muss man den Termin beim Arzt manchmal auf einen anderen Tag verschieben?",
+    )
+
+    assert overlay.kind == OverlayKind.QUESTION
+    assert not overlay.has_overflow_risk
+    assert len(overlay.wrapped_lines) <= overlay.max_lines
+    assert overlay.font_size >= 24
+
+
+def test_options_overlay_fits_four_structured_rows() -> None:
+    overlay = build_text_overlay(
+        OverlayKind.OPTIONS,
+        "A  den Termin verschieben\n"
+        "B  puenktlich ankommen\n"
+        "C  eine Rechnung bezahlen\n"
+        "D  das Fenster oeffnen",
+    )
+
+    assert overlay.kind == OverlayKind.OPTIONS
+    assert not overlay.has_overflow_risk
+    assert len(overlay.wrapped_lines) <= overlay.max_lines
+
+
 def test_wrap_overlay_text_splits_long_german_words_to_control_layout() -> None:
     wrapped = wrap_overlay_text("Donaudampfschifffahrtsgesellschaftskapitaen", 12)
 
