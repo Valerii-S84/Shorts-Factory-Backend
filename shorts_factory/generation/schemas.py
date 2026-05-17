@@ -59,13 +59,12 @@ class ScriptFrame(BaseModel):
 
 
 class GeneratedScript(BaseModel):
-    voiceover: str
     frames: list[ScriptFrame] = Field(min_length=3, max_length=3)
     telegram_caption: str
     youtube_title: str
     youtube_description: str
 
-    @field_validator("voiceover", "telegram_caption", "youtube_title")
+    @field_validator("telegram_caption", "youtube_title")
     @classmethod
     def require_text(cls, value: str) -> str:
         stripped = value.strip()

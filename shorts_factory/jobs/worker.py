@@ -8,6 +8,7 @@ from shorts_factory.db.repositories import VideoJobRepository
 from shorts_factory.generation.image_generator import ImageGenerator
 from shorts_factory.generation.script_generator import ScriptGenerator
 from shorts_factory.generation.voice_generator import VoiceGenerator
+from shorts_factory.generation.voiceover_script import build_voiceover_plan
 from shorts_factory.jobs.retry_policy import RetryAction, retry_action_for_error
 from shorts_factory.publishing.publish_service import PublishService
 from shorts_factory.publishing.youtube_publisher import YouTubePublishError
@@ -62,12 +63,22 @@ class VideoJobWorker:
                 )
             self.repository.update_status(job, JobStatus.IMAGES_READY)
 
-            audio_path = self.voice_generator.generate(job_id=job.id, script=script)
+            voiceover_plan = build_voiceover_plan(quiz, speed=self.settings.openai_tts_speed)
+            voiceover = self.voice_generator.generate(job_id=job.id, voiceover_plan=voiceover_plan)
+            audio_checksum = self.storage.checksum(voiceover.path)
             self.repository.add_asset(
                 job,
                 asset_type=AssetType.AUDIO,
-                path=str(audio_path),
-                checksum=self.storage.checksum(audio_path),
+                path=str(voiceover.path),
+                checksum=audio_checksum,
+                metadata={
+                    "audio_path": str(voiceover.path),
+                    "audio_checksum": audio_checksum,
+                    "voice_model": voiceover.voice_model,
+                    "voice_id": voiceover.voice_id,
+                    "voice_speed": voiceover.voice_speed,
+                    "response_format": voiceover.response_format,
+                },
             )
             self.repository.update_status(job, JobStatus.AUDIO_READY)
 
@@ -77,7 +88,12 @@ class VideoJobWorker:
                 quiz=quiz,
                 script=script,
                 image_paths=image_paths,
-                audio_path=audio_path,
+                audio_path=voiceover.path,
+                audio_checksum=audio_checksum,
+                voiceover_plan=voiceover_plan,
+                voice_model=voiceover.voice_model,
+                voice_id=voiceover.voice_id,
+                voice_speed=voiceover.voice_speed,
             )
             self.repository.store_render_plan(job, render_plan.model_dump(mode="json"))
             self.repository.update_status(job, JobStatus.RENDER_PLAN_READY)

@@ -5,8 +5,8 @@ from typing import Final
 
 from shorts_factory.generation.schemas import PRODUCTION_FRAME_SEQUENCE, FrameType
 
-PRODUCTION_DURATION_MIN_SEC: Final = 14.0
-PRODUCTION_DURATION_MAX_SEC: Final = 17.0
+PRODUCTION_DURATION_MIN_SEC: Final = 15.4
+PRODUCTION_DURATION_MAX_SEC: Final = 15.7
 
 DEFAULT_SEGMENT_DURATIONS: Final = {
     FrameType.QUESTION: 5.0,
@@ -16,34 +16,60 @@ DEFAULT_SEGMENT_DURATIONS: Final = {
 
 
 @dataclass(frozen=True)
+class TextVariant:
+    variant_id: str
+    text: str
+
+
+@dataclass(frozen=True)
 class ProductionTemplate:
     template_id: str
     ordered_segment_sequence: tuple[FrameType, ...]
     durations: dict[FrameType, float]
     answer_reveal_at_sec: float
     explanation_required: bool
-    has_countdown: bool = False
-    has_cta: bool = False
-    is_legacy: bool = False
 
     @property
     def duration_sec(self) -> float:
         return sum(self.durations[frame_type] for frame_type in self.ordered_segment_sequence)
 
-    @property
-    def image_count(self) -> int:
-        return len(self.ordered_segment_sequence)
-
 
 PRODUCTION_TEMPLATES: Final = {
-    template_id: ProductionTemplate(
-        template_id=template_id,
+    "mistake": ProductionTemplate(
+        template_id="mistake",
         ordered_segment_sequence=PRODUCTION_FRAME_SEQUENCE,
         durations=DEFAULT_SEGMENT_DURATIONS,
         answer_reveal_at_sec=10.0,
         explanation_required=True,
-    )
-    for template_id in ("mistake", "level_test", "speed", "grammar_trap", "alltag")
+    ),
+    "level_test": ProductionTemplate(
+        template_id="level_test",
+        ordered_segment_sequence=PRODUCTION_FRAME_SEQUENCE,
+        durations=DEFAULT_SEGMENT_DURATIONS,
+        answer_reveal_at_sec=10.0,
+        explanation_required=True,
+    ),
+    "speed": ProductionTemplate(
+        template_id="speed",
+        ordered_segment_sequence=PRODUCTION_FRAME_SEQUENCE,
+        durations=DEFAULT_SEGMENT_DURATIONS,
+        answer_reveal_at_sec=10.0,
+        explanation_required=True,
+    ),
+    "grammar_trap": ProductionTemplate(
+        template_id="grammar_trap",
+        ordered_segment_sequence=PRODUCTION_FRAME_SEQUENCE,
+        durations=DEFAULT_SEGMENT_DURATIONS,
+        answer_reveal_at_sec=10.0,
+        explanation_required=True,
+    ),
+    "alltag": ProductionTemplate(
+        template_id="alltag",
+        ordered_segment_sequence=PRODUCTION_FRAME_SEQUENCE,
+        durations=DEFAULT_SEGMENT_DURATIONS,
+        answer_reveal_at_sec=10.0,
+        explanation_required=True,
+    ),
 }
 
 TEMPLATE_ROTATION: Final = tuple(PRODUCTION_TEMPLATES)
@@ -67,9 +93,8 @@ def select_creative(
     quiz_level: str | None,
     quiz_topic: str | None,
 ) -> CreativeSelection:
-    return CreativeSelection(
-        template=get_template(_select_template_id(job_id, quiz_level, quiz_topic))
-    )
+    template = get_template(_select_template_id(job_id, quiz_level, quiz_topic))
+    return CreativeSelection(template=template)
 
 
 def validate_production_frame_order(frame_types: tuple[FrameType, ...]) -> None:

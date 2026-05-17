@@ -5,11 +5,13 @@ from pathlib import Path
 
 from shorts_factory.generation.schemas import FrameType, GeneratedScript, ScriptFrame
 from shorts_factory.generation.script_generator import validate_script_preserves_quiz_facts
+from shorts_factory.generation.voice_generator import GeneratedVoiceover
+from shorts_factory.generation.voiceover_script import VOICEOVER_TOTAL_DURATION_SEC, VoiceoverPlan
 from shorts_factory.quiz_bank.schemas import Quiz
 from shorts_factory.settings import Settings
 from shorts_factory.storage.asset_paths import job_asset_path
 
-PLACEHOLDER_AUDIO_SECONDS = 16
+PLACEHOLDER_AUDIO_SECONDS = VOICEOVER_TOTAL_DURATION_SEC
 PLACEHOLDER_COLORS = (
     "0x1f2937",
     "0x0f766e",
@@ -35,7 +37,6 @@ class OfflineQuizBankClient:
 class OfflineScriptGenerator:
     def generate(self, quiz: Quiz) -> GeneratedScript:
         script = GeneratedScript(
-            voiceover=_voiceover(quiz),
             frames=_script_frames(quiz),
             telegram_caption=f"Deutsch-Quiz: {quiz.topic} ({quiz.level})",
             youtube_title=f"Deutsch-Quiz: {quiz.topic}",
@@ -63,11 +64,17 @@ class FFmpegPlaceholderVoiceGenerator:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
-    def generate(self, *, job_id: int, script: GeneratedScript) -> Path:
-        audio_path = job_asset_path(self._settings, job_id, "audio", "voiceover.wav")
+    def generate(self, *, job_id: int, voiceover_plan: VoiceoverPlan) -> GeneratedVoiceover:
+        audio_path = job_asset_path(self._settings, job_id, "audio", "voiceover.mp3")
         audio_path.parent.mkdir(parents=True, exist_ok=True)
         _run_command(_placeholder_audio_command(self._settings, audio_path))
-        return audio_path
+        return GeneratedVoiceover(
+            path=audio_path,
+            voice_model=self._settings.openai_tts_model,
+            voice_id=self._settings.openai_tts_voice,
+            voice_speed=self._settings.openai_tts_speed,
+            response_format=self._settings.openai_tts_response_format,
+        )
 
 
 class OfflineTelegramPublisher:
@@ -94,15 +101,6 @@ def _sample_quiz() -> Quiz:
     )
 
 
-def _voiceover(quiz: Quiz) -> str:
-    options = ", ".join(f"{option.label}: {option.text}" for option in quiz.options)
-    return (
-        f"{quiz.question} "
-        f"Optionen: {options}. "
-        f"Richtig ist {quiz.correct_option_label}: {quiz.correct_option.text}. {quiz.explanation}"
-    )
-
-
 def _script_frames(quiz: Quiz) -> list[ScriptFrame]:
     options_text = "\n".join(f"{option.label} {option.text}" for option in quiz.options)
     return [
@@ -114,7 +112,7 @@ def _script_frames(quiz: Quiz) -> list[ScriptFrame]:
         ScriptFrame(
             type=FrameType.OPTIONS,
             text=options_text,
-            image_prompt="Colorful pencils and notebooks on a classroom table",
+            image_prompt="Three colorful learning cards on a table",
         ),
         ScriptFrame(
             type=FrameType.ANSWER,
@@ -151,8 +149,8 @@ def _placeholder_audio_command(settings: Settings, audio_path: Path) -> list[str
         f"sine=frequency=420:sample_rate=44100:duration={PLACEHOLDER_AUDIO_SECONDS}",
         "-filter:a",
         "volume=0.08",
-        "-c:a",
-        "pcm_s16le",
+        "-q:a",
+        "9",
         str(audio_path),
     ]
 

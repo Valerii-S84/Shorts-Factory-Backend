@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from shorts_factory.settings import Settings
+from shorts_factory.settings import OPENAI_TTS_ALLOWED_VOICES, Settings
 
 
 def test_local_settings_can_start_without_secrets() -> None:
@@ -57,6 +57,28 @@ def test_openai_image_settings_can_be_overridden_from_env(monkeypatch) -> None:
     assert settings.openai_image_background == "transparent"
     assert settings.openai_image_output_format == "webp"
     assert settings.openai_image_moderation == "low"
+
+
+def test_openai_tts_settings_use_canonical_defaults() -> None:
+    settings = Settings(environment="test")
+
+    assert settings.openai_tts_model == "gpt-4o-mini-tts"
+    assert settings.openai_tts_voice == "cedar"
+    assert settings.openai_voice == "cedar"
+    assert settings.openai_tts_speed == 0.8
+    assert settings.openai_tts_response_format == "mp3"
+    assert set(OPENAI_TTS_ALLOWED_VOICES) >= {"cedar", "marin", "coral", "nova", "alloy"}
+
+
+def test_openai_tts_settings_reject_invalid_voice_and_speed() -> None:
+    with pytest.raises(ValidationError, match="OpenAI TTS voice"):
+        Settings(environment="test", openai_tts_voice="not-a-voice")
+
+    with pytest.raises(ValidationError, match="OpenAI TTS speed"):
+        Settings(environment="test", openai_tts_speed=0.1)
+
+    with pytest.raises(ValidationError, match="OpenAI TTS speed"):
+        Settings(environment="test", openai_tts_speed=4.1)
 
 
 def test_youtube_settings_keep_access_token_secret() -> None:

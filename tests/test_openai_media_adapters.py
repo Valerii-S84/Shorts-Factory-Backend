@@ -4,10 +4,8 @@ from types import SimpleNamespace
 import pytest
 
 from shorts_factory.generation.image_generator import ImageGenerationError, OpenAIImageGenerator
-from shorts_factory.generation.image_prompt_builder import IMAGE_NEGATIVE_RULES
 from shorts_factory.generation.image_style_contract import PRODUCTION_IMAGE_STYLE_CONTRACT
 from shorts_factory.generation.schemas import GeneratedScript
-from shorts_factory.generation.voice_generator import OpenAIVoiceGenerator, VoiceGenerationError
 from shorts_factory.settings import Settings
 from shorts_factory.storage.local_storage import LocalStorage
 
@@ -39,13 +37,11 @@ def test_openai_image_generator_builds_prompt_for_each_frame(tmp_path: Path) -> 
     generator.generate(job_id=7, script=script)
 
     assert len(client.calls) == len(script.frames)
-    assert len(client.calls) == 3
     for frame, call in zip(script.frames, client.calls, strict=True):
         assert call["prompt"] != frame.image_prompt
         assert frame.image_prompt in call["prompt"]
         assert PRODUCTION_IMAGE_STYLE_CONTRACT in call["prompt"]
-        for negative_rule in IMAGE_NEGATIVE_RULES:
-            assert negative_rule in call["prompt"]
+        assert "no visible text" in call["prompt"]
 
 
 def test_openai_image_generator_uses_custom_image_settings(tmp_path: Path) -> None:
@@ -86,23 +82,6 @@ def test_openai_image_generator_rejects_missing_b64_json(tmp_path: Path) -> None
         generator.generate(job_id=7, script=valid_script())
 
 
-def test_openai_voice_generator_streams_audio_file(tmp_path: Path) -> None:
-    client = FakeVoiceClient()
-    generator = OpenAIVoiceGenerator(_settings(tmp_path), client=client)
-
-    path = generator.generate(job_id=7, script=valid_script())
-
-    assert path.read_bytes() == b"voice"
-    assert client.streaming.calls[0]["model"] == "tts-test"
-    assert client.streaming.calls[0]["input"] == valid_script().voiceover
-    assert client.streaming.calls[0]["speed"] == 0.8
-
-
-def test_openai_voice_generator_requires_api_key() -> None:
-    with pytest.raises(VoiceGenerationError, match="OPENAI_API_KEY"):
-        OpenAIVoiceGenerator(Settings(environment="test"))
-
-
 class FakeImageClient:
     def __init__(self, b64_json: str | None) -> None:
         self.calls = []
@@ -114,46 +93,18 @@ class FakeImageClient:
         return SimpleNamespace(data=[SimpleNamespace(b64_json=self._b64_json)])
 
 
-class FakeStreamingResponse:
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc, traceback) -> None:
-        return None
-
-    def stream_to_file(self, path: Path) -> None:
-        Path(path).write_bytes(b"voice")
-
-
-class FakeStreamingResponses:
-    def __init__(self) -> None:
-        self.calls = []
-
-    def create(self, **kwargs):
-        self.calls.append(kwargs)
-        return FakeStreamingResponse()
-
-
-class FakeVoiceClient:
-    def __init__(self) -> None:
-        self.streaming = FakeStreamingResponses()
-        self.audio = SimpleNamespace(speech=SimpleNamespace(with_streaming_response=self.streaming))
-
-
 def _settings(media_root: Path) -> Settings:
     return Settings(
         environment="test",
         media_root=media_root,
         openai_api_key="key",
         openai_image_model="image-test",
-        openai_tts_model="tts-test",
     )
 
 
 def valid_script() -> GeneratedScript:
     return GeneratedScript.model_validate(
         {
-            "voiceover": "Was bedeutet 'Haus'? Optionen: A house, B car. Richtig ist A, house.",
             "frames": [
                 {
                     "type": "question",

@@ -9,7 +9,7 @@ Target video format:
 - Aspect ratio: 9:16
 - Container: MP4
 - Resolution: 1080x1920
-- Duration: 14-17 seconds, optimized for 15-16 seconds
+- Duration: 15.5 seconds
 - Language: German
 - Media: AI images without text, German voice-over, backend-rendered text overlays
 - Motion: Ken Burns zoom/pan effect
@@ -38,10 +38,11 @@ OpenAI may only:
 
 - reformat the short script
 - create image prompts
-- generate German voice-over
+- generate German voice audio from backend-built narration text
 - prepare title, caption, and description
 
-Exact video text is rendered only by the backend. Image generation must never be asked to draw text.
+Exact video text and voiceover narration text are built from Quiz Bank facts by the backend.
+Image generation must never be asked to draw text.
 
 ## 3. Product Quality Bar
 
@@ -62,7 +63,7 @@ The service must:
 2. Load one quiz from Quiz Bank API.
 3. Validate the quiz.
 4. Create a short German script.
-5. Generate 3 text-free images, one per production frame.
+5. Generate 3 text-free images, one per production segment.
 6. Generate German voice-over.
 7. Create a render plan.
 8. Assemble MP4 with FFmpeg.
@@ -229,7 +230,7 @@ manual_review_required
 
 ## 9. Canonical Production Video Structure
 
-Production target: 3 fixed frames, 14-17 seconds total. Recommended default: 15.5 seconds.
+Production target: 3 fixed segments, 15.5 seconds total.
 
 Production order is fixed:
 
@@ -248,6 +249,7 @@ Options:
 A ...
 B ...
 C ...
+D ...
 
 10.0-15.5 sec
 Answer reveal + short explanation:
@@ -260,10 +262,26 @@ Every production video must include:
 - exact Quiz Bank question;
 - exact Quiz Bank answer options;
 - answer reveal with exact correct answer;
-- short explanation excerpt sourced from Quiz Bank explanation.
+- short explanation sourced from Quiz Bank explanation;
+- complete visible text overlays so the video still works muted.
 
-Production video must not include a hook, countdown, or CTA. Telegram/channel
-promotion belongs in the caption, not inside the video.
+Voiceover narration is built by the backend in exactly three parts:
+
+1. question narration;
+2. options narration;
+3. answer plus short explanation narration.
+
+Canonical voice settings:
+
+- model: `gpt-4o-mini-tts`
+- voice: `cedar`
+- fallback voice: `marin`
+- speed: `0.8`
+- response format: `mp3`
+- language and style: German, clear, calm, friendly, educational, not theatrical, not too fast
+
+Voiceover must not include CTA text, Telegram/channel wording, countdown wording, hook text,
+or any explanation not sourced from the Quiz Bank explanation excerpt.
 
 Available production templates:
 
@@ -282,7 +300,7 @@ Every video must use a consistent structure:
 - smooth zoom and pan;
 - large readable backend text overlays;
 - separate overlay layouts for question, options, and answer;
-- structured A/B/C option rows;
+- structured A/B/C/D option rows when the quiz contains four options;
 - visible answer reveal emphasis;
 - no visual chaos;
 - no tiny text.
@@ -302,7 +320,6 @@ OpenAI returns strict JSON:
 
 ```json
 {
-  "voiceover": "...",
   "frames": [
     {
       "type": "question",
@@ -311,7 +328,7 @@ OpenAI returns strict JSON:
     },
     {
       "type": "options",
-      "text": "A ...\nB ...\nC ...",
+      "text": "A ...\nB ...\nC ...\nD ...",
       "image_prompt": "..."
     },
     {
@@ -328,7 +345,9 @@ OpenAI returns strict JSON:
 
 The backend must validate returned JSON before saving or rendering. Production scripts must
 contain exactly three frames in the canonical order. Backend rendering remains the source of
-truth for visible question, options, correct answer, and explanation excerpt.
+truth for visible question, options, correct answer, and explanation excerpt. Voiceover
+narration is not accepted from OpenAI script output; it is rebuilt from immutable Quiz Bank
+facts and the approved explanation excerpt.
 
 ## 12. Image Generation Rule
 
@@ -374,15 +393,18 @@ The video must not be published if:
 - video file is missing;
 - file is not MP4;
 - aspect ratio is not 9:16;
-- duration is outside 14-17 seconds;
+- duration is outside the accepted 15.5 second range;
 - audio is missing;
+- audio file is missing or empty;
+- audio checksum is missing;
 - text overlay is missing;
 - frame order is not `question -> options -> answer`;
+- voiceover metadata is missing;
+- voiceover narration is missing the question, options, or correct answer;
+- voiceover reveals the answer before the answer segment;
 - answer reveal starts outside the allowed timing;
 - answer reveal is visible before the answer segment;
 - answer explanation is missing;
-- image count is not 3;
-- question/options frames leak the answer reveal;
 - text overlay overflow risk is not controlled;
 - correct answer does not match Quiz Bank;
 - Telegram caption is missing;
@@ -475,10 +497,10 @@ The first complete production result:
 
 ```text
 one command or one scheduled job
-creates one finished 14-17 second MP4
+creates one finished 15.5 second MP4
 from one quiz
 in German
-with 3 text-free AI images
+with images
 with voice
 with Ken Burns effect
 with exact text

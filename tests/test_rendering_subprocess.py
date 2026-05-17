@@ -98,7 +98,6 @@ def quiz() -> Quiz:
 def script() -> GeneratedScript:
     return GeneratedScript.model_validate(
         {
-            "voiceover": "Was bedeutet 'Haus'? Optionen: A house, B car. Richtig ist A, house.",
             "frames": [
                 {"type": "question", "text": "Was bedeutet 'Haus'?", "image_prompt": "Classroom"},
                 {"type": "options", "text": "A house\nB car", "image_prompt": "Quiz lesson"},
@@ -118,6 +117,6 @@ def ffprobe_output() -> str:
         {"codec_type": "video", "width": 1080, "height": 1920},
         {"codec_type": "audio"}
       ],
-      "format": {"duration": "18.0"}
+      "format": {"duration": "15.5"}
     }
     """

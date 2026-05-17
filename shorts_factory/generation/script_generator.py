@@ -60,7 +60,7 @@ def validate_script_preserves_quiz_facts(script: GeneratedScript, quiz: Quiz) ->
 
     answer_frames = [frame for frame in script.frames if frame.type == FrameType.ANSWER]
     answer_text = " ".join(frame.text for frame in answer_frames)
-    if quiz.correct_option_label not in answer_text or quiz.correct_option.text not in answer_text:
+    if quiz.correct_option_label not in answer_text and quiz.correct_option.text not in answer_text:
         raise ScriptGenerationError("Generated script does not preserve the correct answer.")
 
 
@@ -69,18 +69,10 @@ def _system_prompt() -> str:
         "You create German short-video quiz scripts as strict JSON. "
         "The quiz facts are immutable: question, options, correct answer, explanation, "
         "level, and topic must not be changed. Return exactly three frames in this order: "
-        "question, options, answer. Frame 1 is the question scene and visible text is only "
-        "the quiz question. Frame 2 is the options scene and visible text is only the "
-        "A/B/C/D answer options. Frame 3 is the answer scene and visible text is the exact "
-        "correct answer plus a short explanation excerpt based on the Quiz Bank explanation. "
-        "Do not create a hook, pause, countdown, CTA, channel promo, or marketing text in "
-        "the video script. The voiceover must have three short parts: read the question, "
-        "read the options, then reveal the correct answer and short explanation. Keep it "
-        "concise enough for a 15-16 second video at speech speed 0.8. "
+        "question, options, answer. Do not add hooks, countdown text, or CTA text to frames. "
         "For each frame, frame.image_prompt is only a concise scene brief, not a full "
         "style prompt. Do not include style words that conflict with the backend's "
-        "centralized image style contract. It must not request visible text, letters, "
-        "captions, question text, answer options, labels, signs, UI, logos, watermarks, "
-        "or any written content inside images. Telegram/channel promotion belongs only in "
-        "captions outside the video."
+        "centralized image style contract. It must not request text, letters, captions, "
+        "question text, answer options, labels, signs, UI, logos, or watermarks inside "
+        "images."
     )

@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 from functools import lru_cache
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Final, Literal
 
-from pydantic import Field, SecretStr, field_validator, model_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 Environment = Literal["local", "test", "development", "staging", "production"]
@@ -14,6 +14,8 @@ LOCAL_DATABASE_URL = "sqlite+pysqlite:///var/shorts_factory.db"
 QUIZ_BANK_DEFAULT_CONSUMER_ID = "shorts_factory_backend"
 QUIZ_BANK_DEFAULT_NEXT_PATH = "/v1/quiz-items/next"
 QUIZ_BANK_DEFAULT_LANGUAGE = "de"
+OPENAI_TTS_ALLOWED_VOICES: Final = ("cedar", "marin", "coral", "nova", "alloy")
+OPENAI_TTS_FALLBACK_VOICE: Final = "marin"
 
 
 class Settings(BaseSettings):
@@ -65,8 +67,13 @@ class Settings(BaseSettings):
     )
     openai_image_moderation: str = Field(default="auto", validation_alias="OPENAI_IMAGE_MODERATION")
     openai_tts_model: str = Field(default="gpt-4o-mini-tts", validation_alias="OPENAI_TTS_MODEL")
-    openai_voice: str = Field(default="alloy", validation_alias="OPENAI_VOICE")
-    openai_voice_speed: float = Field(default=0.8, validation_alias="OPENAI_VOICE_SPEED")
+    openai_tts_voice: str = Field(
+        default="cedar", validation_alias=AliasChoices("OPENAI_TTS_VOICE", "OPENAI_VOICE")
+    )
+    openai_tts_speed: float = Field(default=0.8, validation_alias="OPENAI_TTS_SPEED")
+    openai_tts_response_format: str = Field(
+        default="mp3", validation_alias="OPENAI_TTS_RESPONSE_FORMAT"
+    )
     telegram_bot_token: SecretStr | None = Field(
         default=None, validation_alias="TELEGRAM_BOT_TOKEN"
     )
@@ -133,6 +140,30 @@ class Settings(BaseSettings):
             return [item.strip() for item in value.split(",") if item.strip()]
         return value
 
+    @field_validator("openai_tts_voice")
+    @classmethod
+    def validate_openai_tts_voice(cls, value: str) -> str:
+        voice = value.strip().lower()
+        if voice not in OPENAI_TTS_ALLOWED_VOICES:
+            allowed = ", ".join(OPENAI_TTS_ALLOWED_VOICES)
+            raise ValueError(f"OpenAI TTS voice must be one of: {allowed}.")
+        return voice
+
+    @field_validator("openai_tts_speed")
+    @classmethod
+    def validate_openai_tts_speed(cls, value: float) -> float:
+        if not 0.25 <= value <= 4.0:
+            raise ValueError("OpenAI TTS speed must be between 0.25 and 4.0.")
+        return value
+
+    @field_validator("openai_tts_response_format")
+    @classmethod
+    def validate_openai_tts_response_format(cls, value: str) -> str:
+        response_format = value.strip().lower()
+        if response_format != "mp3":
+            raise ValueError("OpenAI TTS response format must be mp3.")
+        return response_format
+
     @property
     def effective_database_url(self) -> str | None:
         if self.database_url is not None:
@@ -152,6 +183,14 @@ class Settings(BaseSettings):
     @property
     def audio_root(self) -> Path:
         return self.media_root / "audio"
+
+    @property
+    def openai_voice(self) -> str:
+        return self.openai_tts_voice
+
+    @property
+    def openai_voice_speed(self) -> float:
+        return self.openai_tts_speed
 
 
 @lru_cache

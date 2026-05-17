@@ -95,7 +95,6 @@ def quiz() -> Quiz:
 def valid_script() -> GeneratedScript:
     return GeneratedScript.model_validate(
         {
-            "voiceover": "Was bedeutet 'Haus'? Optionen: A house, B car. Richtig ist A, house.",
             "frames": [
                 {
                     "type": "question",
